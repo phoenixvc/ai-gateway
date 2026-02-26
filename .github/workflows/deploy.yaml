@@ -1,0 +1,71 @@
+name: Deploy AI Gateway
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+  # Terraform Variables (Environment Specific)
+  TF_VAR_env: "dev"
+  TF_VAR_projname: "aigateway"
+  TF_VAR_location: "southafricanorth"
+  TF_VAR_location_short: "san"
+
+  # Terraform Variables (Secrets & Config)
+  TF_VAR_azure_openai_endpoint: ${{ secrets.AZURE_OPENAI_API_BASE }} # Using API_BASE to match previous convention, but it maps to endpoint
+  TF_VAR_azure_openai_api_key: ${{ secrets.AZURE_OPENAI_API_KEY }}
+  TF_VAR_gateway_key: ${{ secrets.AIGATEWAY_KEY }} # Renamed from LITELLM_MASTER_KEY to align with blueprint
+
+  # Model Configuration (Defaults, can be overridden by secrets if needed)
+  TF_VAR_codex_model: "gpt-5.3-codex"
+  TF_VAR_codex_api_version: "2025-04-01-preview"
+  TF_VAR_embedding_deployment: "text-embedding-3-large"
+  TF_VAR_embeddings_api_version: "2023-05-15"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra/env/dev # Updated working directory
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: |
+          terraform init \
+            -backend-config="resource_group_name=${{ secrets.TF_BACKEND_RG }}" \
+            -backend-config="storage_account_name=${{ secrets.TF_BACKEND_SA }}" \
+            -backend-config="container_name=${{ secrets.TF_BACKEND_CONTAINER }}" \
+            -backend-config="key=terraform.tfstate"
+
+      - name: Terraform Plan
+        run: |
+          terraform plan -out=tfplan
+
+      - name: Terraform Apply
+        if: github.ref == 'refs/heads/main'
+        run: |
+          terraform apply -auto-approve tfplan
