@@ -16,8 +16,8 @@ $SUBSCRIPTION_ID = az account show --query id --output tsv 2>$null
 if (-not $SUBSCRIPTION_ID) { Write-Error "Failed to get Azure subscription ID. Ensure you are logged in (az login)."; exit 1 }
 
 if (-not $SCOPE) {
-    $SCOPE = "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG_NAME"
-    Write-Host "No scope provided. Defaulting to Resource Group scope: $SCOPE"
+    $SCOPE = "/subscriptions/$SUBSCRIPTION_ID"
+    Write-Host "No scope provided. Defaulting to Subscription scope (required for creating resource groups): $SCOPE"
 } else {
     Write-Host "Using provided scope: $SCOPE"
 }
