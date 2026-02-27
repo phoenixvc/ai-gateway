@@ -24,6 +24,8 @@ module "aigateway" {
   location_short= var.location_short
   tags          = var.tags
 
+  container_image         = var.container_image
+
   azure_openai_endpoint   = var.azure_openai_endpoint
   azure_openai_api_key    = var.azure_openai_api_key
 

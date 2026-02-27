@@ -4,7 +4,7 @@ terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = ">= 3.90.0"
+      version = ">= 3.90.0, < 4.0.0"
     }
   }
 }
@@ -18,7 +18,7 @@ locals {
   kv_name_raw = lower(replace("${local.prefix}-kv-${var.location_short}", "_", "-"))
 
   # Ensure KV starts with a letter and is <=24 chars
-  kv_name = substr(regexreplace(local.kv_name_raw, "^[^a-z]+", "p"), 0, 24)
+  kv_name = substr(try(replace(local.kv_name_raw, regex("^[^a-z]+", local.kv_name_raw), "p"), local.kv_name_raw), 0, 24)
 
   rg_name  = "${local.prefix}-rg-${var.location_short}"
   law_name = "${local.prefix}-law-${var.location_short}"

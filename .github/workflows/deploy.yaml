@@ -20,9 +20,11 @@ env:
   TF_BACKEND_RG: ${{ secrets.TF_BACKEND_RG }}
   TF_BACKEND_SA: ${{ secrets.TF_BACKEND_SA }}
   TF_BACKEND_CONTAINER: ${{ secrets.TF_BACKEND_CONTAINER }}
+  TF_VAR_secrets_expiration_date: "2027-03-31T00:00:00Z"
 
 jobs:
   plan:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false
     name: Plan ${{ matrix.environment }}
     runs-on: ubuntu-latest
     strategy:
@@ -99,7 +101,6 @@ jobs:
 
     env:
       TF_VAR_env: "dev"
-      TF_VAR_secrets_expiration_date: "2027-03-31T00:00:00Z"
       TF_VAR_projname: "aigateway"
       TF_VAR_location: "southafricanorth"
       TF_VAR_location_short: "san"
@@ -215,7 +216,6 @@ jobs:
 
     env:
       TF_VAR_env: "uat"
-      TF_VAR_secrets_expiration_date: "2027-03-31T00:00:00Z"
       TF_VAR_projname: "aigateway"
       TF_VAR_location: "southafricanorth"
       TF_VAR_location_short: "san"
@@ -331,7 +331,6 @@ jobs:
 
     env:
       TF_VAR_env: "prod"
-      TF_VAR_secrets_expiration_date: "2027-03-31T00:00:00Z"
       TF_VAR_projname: "aigateway"
       TF_VAR_location: "southafricanorth"
       TF_VAR_location_short: "san"

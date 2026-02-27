@@ -18,6 +18,21 @@ Get-Content $envFile | ForEach-Object {
 }
 
 $envDir = Join-Path $PSScriptRoot ".." "env" $Env
+if (-not (Test-Path $envDir)) {
+    Write-Error "Environment directory does not exist: $envDir (env=$Env)"
+    exit 1
+}
+
+$missing = @()
+if ([string]::IsNullOrWhiteSpace($env:TF_BACKEND_RG)) { $missing += "TF_BACKEND_RG" }
+if ([string]::IsNullOrWhiteSpace($env:TF_BACKEND_SA)) { $missing += "TF_BACKEND_SA" }
+if ([string]::IsNullOrWhiteSpace($env:TF_BACKEND_CONTAINER)) { $missing += "TF_BACKEND_CONTAINER" }
+if ($missing.Count -gt 0) {
+    Write-Error "Missing required backend variables: $($missing -join ', '). Set them in infra/.env.local"
+    exit 1
+}
+
+$terraformExitCode = 0
 Push-Location $envDir
 try {
     terraform init -upgrade `
@@ -25,6 +40,8 @@ try {
         -backend-config="storage_account_name=$env:TF_BACKEND_SA" `
         -backend-config="container_name=$env:TF_BACKEND_CONTAINER" `
         -backend-config="key=$Env.terraform.tfstate"
+    $terraformExitCode = $LASTEXITCODE
 } finally {
     Pop-Location
+    exit $terraformExitCode
 }

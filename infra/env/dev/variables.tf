@@ -34,6 +34,12 @@ variable "gateway_key" {
   }
 }
 
+variable "container_image" {
+  type        = string
+  description = "LiteLLM container image"
+  default     = "ghcr.io/berriai/litellm:latest"
+}
+
 variable "codex_model" { type = string }
 variable "codex_api_version" { type = string }
 

@@ -73,9 +73,13 @@ if ($LASTEXITCODE -eq 0) {
     }
 }
 
-$EXISTING_APP = az ad app list --display-name $APP_NAME --query "[0].appId" -o tsv 2>$null
-if ($EXISTING_APP) {
-    $APP_ID = $EXISTING_APP
+$appMatches = @(az ad app list --display-name $APP_NAME --query "[].appId" -o tsv 2>$null)
+if ($appMatches.Count -gt 1) {
+    Write-Error "Multiple Azure AD applications found with display-name '$APP_NAME'. Resolve ambiguity manually."
+    exit 1
+}
+if ($appMatches.Count -eq 1) {
+    $APP_ID = $appMatches[0].Trim()
     Write-Host "Reusing existing Azure AD Application: $APP_NAME ($APP_ID)"
 } else {
     Write-Host "Creating Azure AD Application: $APP_NAME..."
@@ -86,9 +90,8 @@ if ($EXISTING_APP) {
     }
 }
 
-$EXISTING_SP = az ad sp list --display-name $APP_NAME --query "[0].id" -o tsv 2>$null
-if ($EXISTING_SP) {
-    $SP_ID = $EXISTING_SP
+$SP_ID = az ad sp show --id $APP_ID --query id -o tsv 2>$null
+if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($SP_ID)) {
     Write-Host "Reusing existing Service Principal: $APP_NAME ($SP_ID)"
 } else {
     Write-Host "Creating Service Principal for App: $APP_ID..."
@@ -99,12 +102,12 @@ if ($EXISTING_SP) {
     }
 }
 
-$EXISTING_ROLE = az role assignment list --assignee $SP_ID --scope $SCOPE --role "Contributor" --query "[0].id" -o tsv 2>$null
+$EXISTING_ROLE = az role assignment list --assignee-object-id $SP_ID --scope $SCOPE --role "Contributor" --query "[0].id" -o tsv 2>$null
 if ($EXISTING_ROLE) {
     Write-Host "Role Assignment (Contributor) already exists on scope: $SCOPE"
 } else {
     Write-Host "Creating Role Assignment (Contributor) on scope: $SCOPE..."
-    az role assignment create --assignee $SP_ID --role "Contributor" --scope $SCOPE
+    az role assignment create --assignee-object-id $SP_ID --assignee-principal-type ServicePrincipal --role "Contributor" --scope $SCOPE
     if ($LASTEXITCODE -ne 0) {
         Write-Error "Failed to assign Contributor role to SP $SP_ID on scope $SCOPE. Exit code: $LASTEXITCODE"
         exit 1
@@ -120,10 +123,14 @@ $AIGATEWAY_KEY = [Convert]::ToBase64String($bytes)
 Write-Host "Ensuring Federated Credentials for GitHub Actions (environments: dev, uat, prod)..."
 foreach ($EnvName in @("dev","uat","prod")) {
     $SUBJECT = "repo:" + $GITHUB_ORG + "/" + $GITHUB_REPO + ":environment:" + $EnvName
-    $EXISTING_FC = az ad app federated-credential list --id $OBJECT_ID --query "[?name=='github-actions-$EnvName'].name" -o tsv 2>$null | Select-Object -First 1
-    if ($EXISTING_FC) {
-        Write-Host "  Federated credential for $EnvName already exists, skipping."
+    $EXISTING_SUBJECT = az ad app federated-credential list --id $OBJECT_ID --query "[?name=='github-actions-$EnvName'].subject" -o tsv 2>$null | Select-Object -First 1
+    if ($EXISTING_SUBJECT -and ($EXISTING_SUBJECT -eq $SUBJECT)) {
+        Write-Host "  Federated credential for $EnvName already exists with correct subject, skipping."
     } else {
+        if ($EXISTING_SUBJECT -and ($EXISTING_SUBJECT -ne $SUBJECT)) {
+            Write-Host "  Federated credential for $EnvName has stale subject, deleting and recreating."
+            az ad app federated-credential delete --id $OBJECT_ID --federated-credential-id "github-actions-$EnvName" 2>$null
+        }
         Write-Host "  Adding federated credential for environment: $EnvName (subject: $SUBJECT)"
         $params = @{
             name        = "github-actions-$EnvName"
