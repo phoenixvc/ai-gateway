@@ -28,10 +28,26 @@ variable "container_name" {
   default     = "tfstate"
 }
 
+variable "owner" {
+  type        = string
+  description = "Owning team or role for resource tagging"
+  default     = "platform-team"
+}
+
 variable "tags" {
   type        = map(string)
-  default     = {
-    project = "tfstate"
-    owner   = "J"
-  }
+  default     = {}
+  description = "Additional tags to merge with the default tag set (project, owner)"
+}
+
+variable "allowed_ip_ranges" {
+  type        = list(string)
+  description = "List of public IP ranges (CIDR notation) allowed to access the storage account, e.g. CI/CD runner IPs"
+  default     = []
+}
+
+variable "allowed_subnet_ids" {
+  type        = list(string)
+  description = "List of subnet resource IDs allowed to access the storage account via service endpoints"
+  default     = []
 }
