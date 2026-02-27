@@ -79,7 +79,7 @@ jobs:
         env:
           GW_KEY: ${{ secrets.AIGATEWAY_KEY }}
           SMOKE_MAX_ATTEMPTS: "5"
-          SMOKE_RETRY_DELAY: "15"
+          SMOKE_RETRY_SLEEP: "15"
         run: |
           set -euo pipefail
 

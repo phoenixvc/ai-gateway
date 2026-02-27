@@ -51,8 +51,12 @@ az role assignment create --assignee "$SP_ID" --role "Contributor" --scope "$SCO
 
 OBJECT_ID=$(az ad app show --id "$APP_ID" --query id --output tsv)
 
-echo "Creating Federated Credential for GitHub Actions..."
-az ad app federated-credential create --id "$OBJECT_ID" --parameters "{\"name\":\"github-actions-main\",\"issuer\":\"https://token.actions.githubusercontent.com\",\"subject\":\"repo:$GITHUB_ORG/$GITHUB_REPO:ref:refs/heads/main\",\"description\":\"GitHub Actions OIDC for main branch\",\"audiences\":[\"api://AzureADTokenExchange\"]}"
+echo "Creating Federated Credentials for GitHub Actions (environments: dev, uat, prod)..."
+for ENV in dev uat prod; do
+  SUBJECT="repo:$GITHUB_ORG/$GITHUB_REPO:environment:$ENV"
+  echo "  Adding federated credential for environment: $ENV (subject: $SUBJECT)"
+  az ad app federated-credential create --id "$OBJECT_ID" --parameters "{\"name\":\"github-actions-$ENV\",\"issuer\":\"https://token.actions.githubusercontent.com\",\"subject\":\"$SUBJECT\",\"description\":\"GitHub Actions OIDC for $ENV environment\",\"audiences\":[\"api://AzureADTokenExchange\"]}"
+done
 
 echo ""
 echo "======================================================================"
