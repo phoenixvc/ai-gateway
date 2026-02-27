@@ -2,7 +2,7 @@
 set -e
 
 # --- Usage Check ---
-if [ "$#" -lt 2 ]; then
+if [ "$#" -lt 2 ] || [ "$#" -gt 3 ]; then
     echo "Usage: $0 <GITHUB_ORG> <GITHUB_REPO> [SCOPE]"
     echo "Example: $0 my-org my-repo /subscriptions/xxxx/resourceGroups/my-rg"
     exit 1
