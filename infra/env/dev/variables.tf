@@ -50,18 +50,26 @@ variable "ingress_external" {
 variable "min_replicas" {
   type    = number
   default = 0
+  validation {
+    condition     = var.min_replicas >= 0 && var.min_replicas <= 100
+    error_message = "min_replicas must be between 0 and 100."
+  }
 }
 
 variable "max_replicas" {
   type    = number
   default = 3
+  validation {
+    condition     = var.max_replicas >= 1 && var.max_replicas <= 100
+    error_message = "max_replicas must be between 1 and 100."
+  }
 }
 
 variable "secrets_expiration_date" {
   type        = string
   description = "Expiration date for Key Vault secrets (ISO-8601 UTC format, e.g. 2026-12-31T00:00:00Z)"
   validation {
-    condition     = can(regex("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$", var.secrets_expiration_date)) && can(timecmp(var.secrets_expiration_date, "1970-01-01T00:00:00Z")) && timecmp(var.secrets_expiration_date, plantimestamp()) > 0
+    condition     = can(regex("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$", var.secrets_expiration_date)) && can(formatdate("YYYY-MM-DD'T'hh:mm:ss'Z'", var.secrets_expiration_date)) && can(timecmp(var.secrets_expiration_date, "1970-01-01T00:00:00Z")) && timecmp(var.secrets_expiration_date, plantimestamp()) > 0
     error_message = "secrets_expiration_date must be in ISO-8601 UTC format and strictly in the future relative to plan time."
   }
 }

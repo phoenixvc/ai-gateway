@@ -1,3 +1,6 @@
+# Provider: Callers must configure the azurerm provider. This module does not
+# declare a provider block so root modules can supply their own configuration.
+
 variable "env" {
   type        = string
   description = "Environment name (dev|uat|prod)"

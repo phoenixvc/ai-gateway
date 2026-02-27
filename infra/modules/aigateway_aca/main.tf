@@ -9,10 +9,6 @@ terraform {
   }
 }
 
-provider "azurerm" {
-  features {}
-}
-
 locals {
   prefix = "pvc-${var.env}-${var.projname}"
 
@@ -125,17 +121,36 @@ resource "azurerm_key_vault_access_policy" "terraform_client" {
 
 # Store secrets in KV (optional but useful)
 resource "azurerm_key_vault_secret" "gateway_key" {
-  name         = "gateway-key"
-  value        = var.gateway_key
-  key_vault_id = azurerm_key_vault.kv.id
+  name            = "gateway-key"
+  value           = var.gateway_key
+  key_vault_id    = azurerm_key_vault.kv.id
   expiration_date = var.secrets_expiration_date
+
+  depends_on = [azurerm_key_vault_access_policy.terraform_client]
 }
 
 resource "azurerm_key_vault_secret" "azure_openai_key" {
-  name         = "azure-openai-key"
-  value        = var.azure_openai_api_key
-  key_vault_id = azurerm_key_vault.kv.id
+  name            = "azure-openai-key"
+  value           = var.azure_openai_api_key
+  key_vault_id    = azurerm_key_vault.kv.id
   expiration_date = var.secrets_expiration_date
+
+  depends_on = [azurerm_key_vault_access_policy.terraform_client]
+}
+
+resource "azurerm_user_assigned_identity" "ca" {
+  name                = "${local.ca_name}-id"
+  resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
+  tags                = local.tags
+}
+
+resource "azurerm_key_vault_access_policy" "container_app" {
+  key_vault_id = azurerm_key_vault.kv.id
+  tenant_id    = data.azurerm_client_config.current.tenant_id
+  object_id    = azurerm_user_assigned_identity.ca.principal_id
+
+  secret_permissions = ["Get", "List"]
 }
 
 # Container App
@@ -147,20 +162,29 @@ resource "azurerm_container_app" "ca" {
     }
   }
 
+  depends_on = [azurerm_key_vault_access_policy.container_app]
+
   name                         = local.ca_name
   container_app_environment_id  = azurerm_container_app_environment.cae.id
   resource_group_name          = azurerm_resource_group.rg.name
   revision_mode                = "Single"
   tags                         = local.tags
 
-  secret {
-    name  = "azure-openai-key"
-    value = var.azure_openai_api_key
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.ca.id]
   }
 
   secret {
-    name  = "gateway-key"
-    value = var.gateway_key
+    name                  = "azure-openai-key"
+    key_vault_secret_id   = azurerm_key_vault_secret.azure_openai_key.versionless_id
+    identity              = azurerm_user_assigned_identity.ca.id
+  }
+
+  secret {
+    name                  = "gateway-key"
+    key_vault_secret_id   = azurerm_key_vault_secret.gateway_key.versionless_id
+    identity              = azurerm_user_assigned_identity.ca.id
   }
 
   template {

@@ -134,10 +134,6 @@ jobs:
           name: tfplan-dev
           path: infra/env/dev
 
-      - name: Terraform Plan (verify before apply)
-        run: |
-          terraform plan -out=tfplan
-
       - name: Terraform Apply
         run: |
           terraform apply -auto-approve tfplan
@@ -252,10 +248,6 @@ jobs:
           name: tfplan-uat
           path: infra/env/uat
 
-      - name: Terraform Plan (verify before apply)
-        run: |
-          terraform plan -out=tfplan
-
       - name: Terraform Apply
         run: |
           terraform apply -auto-approve tfplan
@@ -369,10 +361,6 @@ jobs:
         with:
           name: tfplan-prod
           path: infra/env/prod
-
-      - name: Terraform Plan (verify before apply)
-        run: |
-          terraform plan -out=tfplan
 
       - name: Terraform Apply
         run: |
