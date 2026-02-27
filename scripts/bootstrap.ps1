@@ -113,22 +113,32 @@ if ($EXISTING_ROLE) {
 
 $OBJECT_ID = az ad app show --id $APP_ID --query id --output tsv
 
+$bytes = New-Object byte[] 32
+[System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+$AIGATEWAY_KEY = [Convert]::ToBase64String($bytes)
+
 Write-Host "Ensuring Federated Credentials for GitHub Actions (environments: dev, uat, prod)..."
-foreach ($ENV in @("dev","uat","prod")) {
-    $SUBJECT = "repo:$GITHUB_ORG/$GITHUB_REPO:environment:$ENV"
-    $EXISTING_FC = az ad app federated-credential list --id $OBJECT_ID --query "[?name=='github-actions-$ENV'].name" -o tsv 2>$null | Select-Object -First 1
+foreach ($EnvName in @("dev","uat","prod")) {
+    $SUBJECT = "repo:" + $GITHUB_ORG + "/" + $GITHUB_REPO + ":environment:" + $EnvName
+    $EXISTING_FC = az ad app federated-credential list --id $OBJECT_ID --query "[?name=='github-actions-$EnvName'].name" -o tsv 2>$null | Select-Object -First 1
     if ($EXISTING_FC) {
-        Write-Host "  Federated credential for $ENV already exists, skipping."
+        Write-Host "  Federated credential for $EnvName already exists, skipping."
     } else {
-        Write-Host "  Adding federated credential for environment: $ENV (subject: $SUBJECT)"
+        Write-Host "  Adding federated credential for environment: $EnvName (subject: $SUBJECT)"
         $params = @{
-            name        = "github-actions-$ENV"
+            name        = "github-actions-$EnvName"
             issuer      = "https://token.actions.githubusercontent.com"
             subject     = $SUBJECT
-            description = "GitHub Actions OIDC for $ENV environment"
+            description = "GitHub Actions OIDC for $EnvName environment"
             audiences   = @("api://AzureADTokenExchange")
-        } | ConvertTo-Json
-        az ad app federated-credential create --id $OBJECT_ID --parameters $params
+        } | ConvertTo-Json -Compress
+        $paramsFile = [System.IO.Path]::GetTempFileName()
+        $params | Set-Content -Path $paramsFile -Encoding UTF8 -NoNewline
+        try {
+            az ad app federated-credential create --id $OBJECT_ID --parameters "@$paramsFile"
+        } finally {
+            Remove-Item $paramsFile -Force -ErrorAction SilentlyContinue
+        }
     }
 }
 
@@ -146,7 +156,7 @@ Write-Host "  AZURE_TENANT_ID:      $AZURE_TENANT_ID"
 Write-Host "  AZURE_SUBSCRIPTION_ID: $SUBSCRIPTION_ID"
 Write-Host ""
 Write-Host "Application Secrets (Required for Deployment):"
-Write-Host "  AZURE_OPENAI_ENDPOINT: <Your Azure OpenAI Endpoint, e.g., https://my-resource.openai.azure.com/>"
+Write-Host "  AZURE_OPENAI_ENDPOINT: <Your Azure OpenAI Endpoint, e.g., https://mys-shared-ai-san.openai.azure.com/>"
 Write-Host "  AZURE_OPENAI_API_KEY:  <Your Azure OpenAI API Key>"
-Write-Host "  AIGATEWAY_KEY:         <A strong random string for your Gateway Auth>"
+Write-Host "  AIGATEWAY_KEY:         $AIGATEWAY_KEY"
 Write-Host "======================================================================"

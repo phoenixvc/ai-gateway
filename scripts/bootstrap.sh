@@ -102,6 +102,8 @@ fi
 
 OBJECT_ID=$(az ad app show --id "$APP_ID" --query id --output tsv)
 
+AIGATEWAY_KEY=$(openssl rand -base64 32 2>/dev/null || head -c 32 /dev/urandom | base64)
+
 echo "Ensuring Federated Credentials for GitHub Actions (environments: dev, uat, prod)..."
 command -v jq >/dev/null 2>&1 || { echo "Error: jq is required for safe JSON construction. Install jq and retry."; exit 1; }
 for ENV in dev uat prod; do
@@ -134,7 +136,7 @@ echo "  AZURE_TENANT_ID:      $(az account show --query tenantId --output tsv)"
 echo "  AZURE_SUBSCRIPTION_ID: $(az account show --query id --output tsv)"
 echo ""
 echo "Application Secrets (Required for Deployment):"
-echo "  AZURE_OPENAI_ENDPOINT: <Your Azure OpenAI Endpoint, e.g., https://my-resource.openai.azure.com/>"
+echo "  AZURE_OPENAI_ENDPOINT: <Your Azure OpenAI Endpoint, e.g., https://mys-shared-ai-san.openai.azure.com/>"
 echo "  AZURE_OPENAI_API_KEY:  <Your Azure OpenAI API Key>"
-echo "  AIGATEWAY_KEY:         <A strong random string for your Gateway Auth>"
+echo "  AIGATEWAY_KEY:         $AIGATEWAY_KEY"
 echo "======================================================================"
