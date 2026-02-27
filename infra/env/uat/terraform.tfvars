@@ -3,8 +3,11 @@ projname        = "aigateway"
 location        = "southafricanorth"
 location_short  = "san"
 
-# Your Azure OpenAI endpoint host
-# Placeholder value, will be overridden by environment variable or should be set by user
+# Your Azure OpenAI endpoint host.
+# NOTE: The TF_VAR_azure_openai_endpoint environment variable (set via the
+# GitHub Environment secret AZURE_OPENAI_ENDPOINT) takes precedence over this
+# value during CI/CD runs. For local development, either set that env var or
+# update this file with the correct UAT endpoint.
 azure_openai_endpoint = "https://mys-shared-ai-swc.cognitiveservices.azure.com"
 
 codex_model       = "gpt-5.3-codex"
@@ -14,7 +17,7 @@ embedding_deployment   = "text-embedding-3-large"
 embeddings_api_version = "2023-05-15"
 
 tags = {
-  owner    = "J"
+  owner    = "ai-gateway-team"
   project  = "aigateway"
   env      = "uat"
 }
