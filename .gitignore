@@ -6,7 +6,8 @@ __pycache__/
 .eggs/
 venv/
 .venv/
-env/
+# Root-only to avoid ignoring infra/env/ (Terraform configs)
+/env/
 
 # Terraform
 .terraform/

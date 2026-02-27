@@ -1,0 +1,83 @@
+name: Smoke test gateway
+description: Tests /v1/embeddings and /v1/responses endpoints with retries
+inputs:
+  gateway_url:
+    required: true
+    description: Gateway base URL (e.g. https://...azurecontainerapps.io)
+  gateway_key:
+    required: true
+    description: AIGATEWAY_KEY for Authorization header
+  embedding_model:
+    required: true
+    description: Embedding deployment name
+  codex_model:
+    required: true
+    description: Codex model for responses endpoint
+  max_attempts:
+    required: false
+    default: "5"
+    description: Max retry attempts per endpoint
+  retry_sleep:
+    required: false
+    default: "10"
+    description: Seconds between retries
+runs:
+  using: composite
+  steps:
+    - name: Smoke test gateway (embeddings + responses)
+      shell: bash
+      env:
+        GW: ${{ inputs.gateway_url }}
+        GW_KEY: ${{ inputs.gateway_key }}
+        EMB_MODEL: ${{ inputs.embedding_model }}
+        CODEX_MODEL: ${{ inputs.codex_model }}
+        SMOKE_MAX_ATTEMPTS: ${{ inputs.max_attempts }}
+        SMOKE_RETRY_SLEEP: ${{ inputs.retry_sleep }}
+      run: |
+        set -euo pipefail
+        echo "Gateway: ${GW}"
+        echo "Testing /v1/embeddings..."
+        EMB_CODE=0
+        for attempt in $(seq 1 "${SMOKE_MAX_ATTEMPTS}"); do
+          curl -sS -o /tmp/emb.json -w "%{http_code}" \
+            -X POST "${GW}/v1/embeddings" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${GW_KEY}" \
+            -d "{\"model\":\"${EMB_MODEL}\",\"input\":\"smoke test\"}" \
+            > /tmp/emb.code 2>/dev/null || true
+          EMB_CODE=$(cat /tmp/emb.code 2>/dev/null || echo "")
+          [ -z "$EMB_CODE" ] || [[ ! "$EMB_CODE" =~ ^[0-9]+$ ]] && EMB_CODE=0
+          if [ "$EMB_CODE" -ge 200 ] && [ "$EMB_CODE" -lt 300 ]; then
+            break
+          fi
+          echo "Attempt ${attempt}/${SMOKE_MAX_ATTEMPTS}: embeddings returned ${EMB_CODE}, retrying in ${SMOKE_RETRY_SLEEP}s..."
+          sleep "${SMOKE_RETRY_SLEEP}"
+        done
+        if [ "$EMB_CODE" -lt 200 ] || [ "$EMB_CODE" -ge 300 ]; then
+          echo "Embeddings failed after ${SMOKE_MAX_ATTEMPTS} attempts (${EMB_CODE})" >&2
+          cat /tmp/emb.json >&2 || true
+          exit 1
+        fi
+        echo "Testing /v1/responses..."
+        RESP_CODE=0
+        for attempt in $(seq 1 "${SMOKE_MAX_ATTEMPTS}"); do
+          curl -sS -o /tmp/resp.json -w "%{http_code}" \
+            -X POST "${GW}/v1/responses" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${GW_KEY}" \
+            -d "{\"model\":\"${CODEX_MODEL}\",\"input\":\"Respond with exactly: OK\"}" \
+            > /tmp/resp.code 2>/dev/null || true
+          RESP_CODE=$(cat /tmp/resp.code 2>/dev/null || echo "")
+          [ -z "$RESP_CODE" ] || [[ ! "$RESP_CODE" =~ ^[0-9]+$ ]] && RESP_CODE=0
+          if [ "$RESP_CODE" -ge 200 ] && [ "$RESP_CODE" -lt 300 ]; then
+            break
+          fi
+          echo "Attempt ${attempt}/${SMOKE_MAX_ATTEMPTS}: responses returned ${RESP_CODE}, retrying in ${SMOKE_RETRY_SLEEP}s..."
+          sleep "${SMOKE_RETRY_SLEEP}"
+        done
+        if [ "$RESP_CODE" -lt 200 ] || [ "$RESP_CODE" -ge 300 ]; then
+          echo "Responses failed after ${SMOKE_MAX_ATTEMPTS} attempts (${RESP_CODE})" >&2
+          cat /tmp/resp.json >&2 || true
+          exit 1
+        fi
+        echo "Smoke tests passed."

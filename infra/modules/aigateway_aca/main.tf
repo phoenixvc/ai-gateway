@@ -1,16 +1,12 @@
 terraform {
-  required_version = "~> 1.6.0"
+  required_version = ">= 1.14.0"
 
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "~> 3.90.0"
+      version = ">= 4.62.0"
     }
   }
-}
-
-provider "azurerm" {
-  features {}
 }
 
 locals {
@@ -22,7 +18,7 @@ locals {
   kv_name_raw = lower(replace("${local.prefix}-kv-${var.location_short}", "_", "-"))
 
   # Ensure KV starts with a letter and is <=24 chars
-  kv_name = substr(regexreplace(local.kv_name_raw, "^[^a-z]+", "p"), 0, 24)
+  kv_name = substr(try(replace(local.kv_name_raw, regex("^[^a-z]+", local.kv_name_raw), "p"), local.kv_name_raw), 0, 24)
 
   rg_name  = "${local.prefix}-rg-${var.location_short}"
   law_name = "${local.prefix}-law-${var.location_short}"
@@ -125,35 +121,70 @@ resource "azurerm_key_vault_access_policy" "terraform_client" {
 
 # Store secrets in KV (optional but useful)
 resource "azurerm_key_vault_secret" "gateway_key" {
-  name         = "gateway-key"
-  value        = var.gateway_key
-  key_vault_id = azurerm_key_vault.kv.id
+  name            = "gateway-key"
+  value           = var.gateway_key
+  key_vault_id    = azurerm_key_vault.kv.id
   expiration_date = var.secrets_expiration_date
+
+  depends_on = [azurerm_key_vault_access_policy.terraform_client]
 }
 
 resource "azurerm_key_vault_secret" "azure_openai_key" {
-  name         = "azure-openai-key"
-  value        = var.azure_openai_api_key
-  key_vault_id = azurerm_key_vault.kv.id
+  name            = "azure-openai-key"
+  value           = var.azure_openai_api_key
+  key_vault_id    = azurerm_key_vault.kv.id
   expiration_date = var.secrets_expiration_date
+
+  depends_on = [azurerm_key_vault_access_policy.terraform_client]
+}
+
+resource "azurerm_user_assigned_identity" "ca" {
+  name                = "${local.ca_name}-id"
+  resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
+  tags                = local.tags
+}
+
+resource "azurerm_key_vault_access_policy" "container_app" {
+  key_vault_id = azurerm_key_vault.kv.id
+  tenant_id    = data.azurerm_client_config.current.tenant_id
+  object_id    = azurerm_user_assigned_identity.ca.principal_id
+
+  secret_permissions = ["Get", "List"]
 }
 
 # Container App
 resource "azurerm_container_app" "ca" {
+  lifecycle {
+    precondition {
+      condition     = var.min_replicas <= var.max_replicas
+      error_message = "min_replicas (${var.min_replicas}) must not exceed max_replicas (${var.max_replicas})."
+    }
+  }
+
+  depends_on = [azurerm_key_vault_access_policy.container_app]
+
   name                         = local.ca_name
   container_app_environment_id  = azurerm_container_app_environment.cae.id
   resource_group_name          = azurerm_resource_group.rg.name
   revision_mode                = "Single"
   tags                         = local.tags
 
-  secret {
-    name  = "azure-openai-key"
-    value = var.azure_openai_api_key
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.ca.id]
   }
 
   secret {
-    name  = "gateway-key"
-    value = var.gateway_key
+    name                  = "azure-openai-key"
+    key_vault_secret_id   = azurerm_key_vault_secret.azure_openai_key.versionless_id
+    identity              = azurerm_user_assigned_identity.ca.id
+  }
+
+  secret {
+    name                  = "gateway-key"
+    key_vault_secret_id   = azurerm_key_vault_secret.gateway_key.versionless_id
+    identity              = azurerm_user_assigned_identity.ca.id
   }
 
   template {

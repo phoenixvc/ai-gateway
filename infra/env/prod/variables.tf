@@ -55,7 +55,7 @@ variable "ingress_external" {
 
 variable "min_replicas" {
   type    = number
-  default = 0
+  default = 1
   validation {
     condition     = var.min_replicas >= 0 && var.min_replicas <= 100
     error_message = "min_replicas must be between 0 and 100."
