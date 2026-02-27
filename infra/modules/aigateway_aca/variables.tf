@@ -112,3 +112,13 @@ variable "secrets_expiration_date" {
   type        = string
   description = "Expiration date for Key Vault secrets (ISO-8601 UTC format, e.g. 2026-12-31T00:00:00Z)"
 }
+
+variable "key_vault_network_default_action" {
+  type        = string
+  description = "Key Vault network ACL default action. Use Allow when deploying from GitHub Actions (external IPs); Deny for private-only access."
+  default     = "Allow"
+  validation {
+    condition     = contains(["Allow", "Deny"], var.key_vault_network_default_action)
+    error_message = "Must be Allow or Deny."
+  }
+}
