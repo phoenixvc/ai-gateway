@@ -95,13 +95,13 @@ jobs:
               -H "Content-Type: application/json" \
               -H "Authorization: Bearer ${GW_KEY}" \
               -d "{\"model\":\"${TF_VAR_embedding_deployment}\",\"input\":\"smoke test\"}" \
-              > /tmp/emb.code
+              > /tmp/emb.code 2>/dev/null || true
             EMB_CODE=$(cat /tmp/emb.code)
             if [ "$EMB_CODE" -ge 200 ] && [ "$EMB_CODE" -lt 300 ]; then
               break
             fi
-            echo "Attempt ${attempt}/${SMOKE_MAX_ATTEMPTS}: embeddings returned ${EMB_CODE}, retrying in ${SMOKE_RETRY_DELAY}s..." >&2
-            sleep "${SMOKE_RETRY_DELAY}"
+            echo "Attempt ${attempt}/${SMOKE_MAX_ATTEMPTS}: embeddings returned ${EMB_CODE}, retrying in ${SMOKE_RETRY_SLEEP}s..."
+            sleep "${SMOKE_RETRY_SLEEP}"
           done
 
           if [ "$EMB_CODE" -lt 200 ] || [ "$EMB_CODE" -ge 300 ]; then
@@ -137,6 +137,11 @@ jobs:
         working-directory: infra/env/prod
 
     env:
+      # Azure credentials (inherited from workflow-level env)
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      
       # Terraform Variables (Environment Specific)
       TF_VAR_env: "prod"
       TF_VAR_projname: "aigateway"
@@ -189,7 +194,7 @@ jobs:
         env:
           GW_KEY: ${{ secrets.AIGATEWAY_KEY }}
           SMOKE_MAX_ATTEMPTS: "5"
-          SMOKE_RETRY_DELAY: "15"
+          SMOKE_RETRY_SLEEP: "10"
         run: |
           set -euo pipefail
 
@@ -204,13 +209,13 @@ jobs:
               -H "Content-Type: application/json" \
               -H "Authorization: Bearer ${GW_KEY}" \
               -d "{\"model\":\"${TF_VAR_embedding_deployment}\",\"input\":\"smoke test\"}" \
-              > /tmp/emb.code
+              > /tmp/emb.code 2>/dev/null || true
             EMB_CODE=$(cat /tmp/emb.code)
             if [ "$EMB_CODE" -ge 200 ] && [ "$EMB_CODE" -lt 300 ]; then
               break
             fi
-            echo "Attempt ${attempt}/${SMOKE_MAX_ATTEMPTS}: embeddings returned ${EMB_CODE}, retrying in ${SMOKE_RETRY_DELAY}s..." >&2
-            sleep "${SMOKE_RETRY_DELAY}"
+            echo "Attempt ${attempt}/${SMOKE_MAX_ATTEMPTS}: embeddings returned ${EMB_CODE}, retrying in ${SMOKE_RETRY_SLEEP}s..."
+            sleep "${SMOKE_RETRY_SLEEP}"
           done
 
           if [ "$EMB_CODE" -lt 200 ] || [ "$EMB_CODE" -ge 300 ]; then
