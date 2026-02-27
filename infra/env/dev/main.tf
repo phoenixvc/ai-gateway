@@ -33,9 +33,10 @@ module "aigateway" {
   embedding_deployment    = var.embedding_deployment
   embeddings_api_version  = var.embeddings_api_version
 
-  ingress_external        = true
-  min_replicas            = 0
-  max_replicas            = 3
+  ingress_external        = var.ingress_external
+  min_replicas            = var.min_replicas
+  max_replicas            = var.max_replicas
+  secrets_expiration_date = var.secrets_expiration_date
 }
 
 output "gateway_url" {

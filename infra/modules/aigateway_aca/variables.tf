@@ -1,6 +1,10 @@
 variable "env" {
   type        = string
   description = "Environment name (dev|uat|prod)"
+  validation {
+    condition     = contains(["dev", "uat", "prod"], var.env)
+    error_message = "Environment must be one of: dev, uat, prod."
+  }
 }
 
 variable "projname" {
@@ -30,8 +34,8 @@ variable "tags" {
 # LiteLLM container
 variable "container_image" {
   type        = string
-  description = "LiteLLM container image"
-  default     = "ghcr.io/berriai/litellm:latest"
+  description = "LiteLLM container image (e.g. ghcr.io/berriai/litellm:v1.34.0)"
+
 }
 
 variable "container_port" {
@@ -99,4 +103,9 @@ variable "min_replicas" {
 variable "max_replicas" {
   type        = number
   default     = 3
+}
+
+variable "secrets_expiration_date" {
+  type        = string
+  description = "Expiration date for Key Vault secrets (ISO-8601 UTC format, e.g. 2026-12-31T00:00:00Z)"
 }
