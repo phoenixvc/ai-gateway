@@ -31,7 +31,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        environment: [dev, uat, prod]
+        environment: [prod]
     environment: ${{ matrix.environment }}
     defaults:
       run:
@@ -90,151 +90,11 @@ jobs:
           path: infra/env/${{ matrix.environment }}/tfplan
           retention-days: 1
 
-  deploy-dev:
-    name: Deploy dev
+  deploy-prod:
+    name: Deploy prod
     needs: plan
     runs-on: ubuntu-latest
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
-    environment: dev
-    defaults:
-      run:
-        working-directory: infra/env/dev
-
-    env:
-      TF_VAR_env: "dev"
-      TF_VAR_projname: "aigateway"
-      TF_VAR_location: "southafricanorth"
-      TF_VAR_location_short: "san"
-      TF_VAR_azure_openai_endpoint: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
-      TF_VAR_azure_openai_api_key: ${{ secrets.AZURE_OPENAI_API_KEY }}
-      TF_VAR_gateway_key: ${{ secrets.AIGATEWAY_KEY }}
-      TF_VAR_codex_model: "gpt-5.3-codex"
-      TF_VAR_codex_api_version: "2025-04-01-preview"
-      TF_VAR_embedding_deployment: "text-embedding-3-large"
-      TF_VAR_embeddings_api_version: "2023-05-15"
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Azure Login
-        uses: azure/login@v2
-        with:
-          client-id: ${{ env.AZURE_CLIENT_ID }}
-          tenant-id: ${{ env.AZURE_TENANT_ID }}
-          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.14.6
-
-      - name: Terraform Init
-        run: |
-          terraform init \
-            -backend-config="resource_group_name=${TF_BACKEND_RG}" \
-            -backend-config="storage_account_name=${TF_BACKEND_SA}" \
-            -backend-config="container_name=${TF_BACKEND_CONTAINER}" \
-            -backend-config="key=dev.terraform.tfstate"
-
-      - name: Download Plan
-        uses: actions/download-artifact@v4
-        with:
-          name: tfplan-dev
-          path: infra/env/dev
-
-      - name: Terraform Apply
-        run: |
-          terraform apply -auto-approve tfplan
-
-      - name: Get gateway URL
-        id: gw
-        run: echo "url=$(terraform output -raw gateway_url)" >> $GITHUB_OUTPUT
-
-      - name: Smoke test gateway (embeddings + responses)
-        uses: ./.github/actions/smoke-test-gateway
-        with:
-          gateway_url: ${{ steps.gw.outputs.url }}
-          gateway_key: ${{ secrets.AIGATEWAY_KEY }}
-          embedding_model: ${{ env.TF_VAR_embedding_deployment }}
-          codex_model: ${{ env.TF_VAR_codex_model }}
-          max_attempts: "5"
-          retry_sleep: "10"
-
-  deploy-uat:
-    name: Deploy uat
-    needs: deploy-dev
-    runs-on: ubuntu-latest
-    environment: uat
-    defaults:
-      run:
-        working-directory: infra/env/uat
-
-    env:
-      TF_VAR_env: "uat"
-      TF_VAR_projname: "aigateway"
-      TF_VAR_location: "southafricanorth"
-      TF_VAR_location_short: "san"
-      TF_VAR_azure_openai_endpoint: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
-      TF_VAR_azure_openai_api_key: ${{ secrets.AZURE_OPENAI_API_KEY }}
-      TF_VAR_gateway_key: ${{ secrets.AIGATEWAY_KEY }}
-      TF_VAR_codex_model: "gpt-5.3-codex"
-      TF_VAR_codex_api_version: "2025-04-01-preview"
-      TF_VAR_embedding_deployment: "text-embedding-3-large"
-      TF_VAR_embeddings_api_version: "2023-05-15"
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Azure Login
-        uses: azure/login@v2
-        with:
-          client-id: ${{ env.AZURE_CLIENT_ID }}
-          tenant-id: ${{ env.AZURE_TENANT_ID }}
-          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.14.6
-
-      - name: Terraform Init
-        run: |
-          terraform init \
-            -backend-config="resource_group_name=${TF_BACKEND_RG}" \
-            -backend-config="storage_account_name=${TF_BACKEND_SA}" \
-            -backend-config="container_name=${TF_BACKEND_CONTAINER}" \
-            -backend-config="key=uat.terraform.tfstate"
-
-      - name: Download Plan
-        uses: actions/download-artifact@v4
-        with:
-          name: tfplan-uat
-          path: infra/env/uat
-
-      - name: Terraform Apply
-        run: |
-          terraform apply -auto-approve tfplan
-
-      - name: Get gateway URL
-        id: gw
-        run: echo "url=$(terraform output -raw gateway_url)" >> $GITHUB_OUTPUT
-
-      - name: Smoke test gateway (embeddings + responses)
-        uses: ./.github/actions/smoke-test-gateway
-        with:
-          gateway_url: ${{ steps.gw.outputs.url }}
-          gateway_key: ${{ secrets.AIGATEWAY_KEY }}
-          embedding_model: ${{ env.TF_VAR_embedding_deployment }}
-          codex_model: ${{ env.TF_VAR_codex_model }}
-          max_attempts: "5"
-          retry_sleep: "10"
-
-  deploy-prod:
-    name: Deploy prod
-    needs: deploy-uat
-    runs-on: ubuntu-latest
     environment: prod
     defaults:
       run:
