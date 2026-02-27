@@ -64,6 +64,11 @@ terraform apply
 | uat  | User acceptance|
 | prod | Production     |
 
+## CI/CD
+
+- **Plan** runs on PRs from the same repo; PRs from forks are skipped (no repo secrets).
+- **Deploy** runs on push to `main` or `workflow_dispatch`; dev → uat → prod sequentially.
+
 ## Documentation
 
 - [PRD](docs/PRD.md) – Product requirements

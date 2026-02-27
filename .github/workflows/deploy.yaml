@@ -24,6 +24,7 @@ env:
 
 jobs:
   plan:
+    # Skip plan for PRs from forks (no repo secrets; avoids AADSTS700213)
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false
     name: Plan ${{ matrix.environment }}
     runs-on: ubuntu-latest
@@ -146,64 +147,19 @@ jobs:
         run: |
           terraform apply -auto-approve tfplan
 
+      - name: Get gateway URL
+        id: gw
+        run: echo "url=$(terraform output -raw gateway_url)" >> $GITHUB_OUTPUT
+
       - name: Smoke test gateway (embeddings + responses)
-        env:
-          GW_KEY: ${{ secrets.AIGATEWAY_KEY }}
-          SMOKE_MAX_ATTEMPTS: "5"
-          SMOKE_RETRY_SLEEP: "10"
-        run: |
-          set -euo pipefail
-
-          GW=$(terraform output -raw gateway_url)
-          echo "Gateway: ${GW}"
-
-          echo "Testing /v1/embeddings..."
-          EMB_CODE=0
-          for attempt in $(seq 1 "${SMOKE_MAX_ATTEMPTS}"); do
-            curl -sS -o /tmp/emb.json -w "%{http_code}" \
-              -X POST "${GW}/v1/embeddings" \
-              -H "Content-Type: application/json" \
-              -H "Authorization: Bearer ${GW_KEY}" \
-              -d "{\"model\":\"${TF_VAR_embedding_deployment}\",\"input\":\"smoke test\"}" \
-              > /tmp/emb.code 2>/dev/null || true
-            EMB_CODE=$(cat /tmp/emb.code)
-            if [ "$EMB_CODE" -ge 200 ] && [ "$EMB_CODE" -lt 300 ]; then
-              break
-            fi
-            echo "Attempt ${attempt}/${SMOKE_MAX_ATTEMPTS}: embeddings returned ${EMB_CODE}, retrying in ${SMOKE_RETRY_SLEEP}s..."
-            sleep "${SMOKE_RETRY_SLEEP}"
-          done
-
-          if [ "$EMB_CODE" -lt 200 ] || [ "$EMB_CODE" -ge 300 ]; then
-            echo "Embeddings failed after ${SMOKE_MAX_ATTEMPTS} attempts (${EMB_CODE})" >&2
-            cat /tmp/emb.json >&2 || true
-            exit 1
-          fi
-
-          echo "Testing /v1/responses..."
-          RESP_CODE=0
-          for attempt in $(seq 1 "${SMOKE_MAX_ATTEMPTS}"); do
-            curl -sS -o /tmp/resp.json -w "%{http_code}" \
-              -X POST "${GW}/v1/responses" \
-              -H "Content-Type: application/json" \
-              -H "Authorization: Bearer ${GW_KEY}" \
-              -d "{\"model\":\"${TF_VAR_codex_model}\",\"input\":\"Respond with exactly: OK\"}" \
-              > /tmp/resp.code 2>/dev/null || true
-            RESP_CODE=$(cat /tmp/resp.code)
-            if [ "$RESP_CODE" -ge 200 ] && [ "$RESP_CODE" -lt 300 ]; then
-              break
-            fi
-            echo "Attempt ${attempt}/${SMOKE_MAX_ATTEMPTS}: responses returned ${RESP_CODE}, retrying in ${SMOKE_RETRY_SLEEP}s..."
-            sleep "${SMOKE_RETRY_SLEEP}"
-          done
-
-          if [ "$RESP_CODE" -lt 200 ] || [ "$RESP_CODE" -ge 300 ]; then
-            echo "Responses failed after ${SMOKE_MAX_ATTEMPTS} attempts (${RESP_CODE})" >&2
-            cat /tmp/resp.json >&2 || true
-            exit 1
-          fi
-
-          echo "Smoke tests passed."
+        uses: ./.github/actions/smoke-test-gateway
+        with:
+          gateway_url: ${{ steps.gw.outputs.url }}
+          gateway_key: ${{ secrets.AIGATEWAY_KEY }}
+          embedding_model: ${{ env.TF_VAR_embedding_deployment }}
+          codex_model: ${{ env.TF_VAR_codex_model }}
+          max_attempts: "5"
+          retry_sleep: "10"
 
   deploy-uat:
     name: Deploy uat
@@ -261,64 +217,19 @@ jobs:
         run: |
           terraform apply -auto-approve tfplan
 
+      - name: Get gateway URL
+        id: gw
+        run: echo "url=$(terraform output -raw gateway_url)" >> $GITHUB_OUTPUT
+
       - name: Smoke test gateway (embeddings + responses)
-        env:
-          GW_KEY: ${{ secrets.AIGATEWAY_KEY }}
-          SMOKE_MAX_ATTEMPTS: "5"
-          SMOKE_RETRY_SLEEP: "10"
-        run: |
-          set -euo pipefail
-
-          GW=$(terraform output -raw gateway_url)
-          echo "Gateway: ${GW}"
-
-          echo "Testing /v1/embeddings..."
-          EMB_CODE=0
-          for attempt in $(seq 1 "${SMOKE_MAX_ATTEMPTS}"); do
-            curl -sS -o /tmp/emb.json -w "%{http_code}" \
-              -X POST "${GW}/v1/embeddings" \
-              -H "Content-Type: application/json" \
-              -H "Authorization: Bearer ${GW_KEY}" \
-              -d "{\"model\":\"${TF_VAR_embedding_deployment}\",\"input\":\"smoke test\"}" \
-              > /tmp/emb.code 2>/dev/null || true
-            EMB_CODE=$(cat /tmp/emb.code)
-            if [ "$EMB_CODE" -ge 200 ] && [ "$EMB_CODE" -lt 300 ]; then
-              break
-            fi
-            echo "Attempt ${attempt}/${SMOKE_MAX_ATTEMPTS}: embeddings returned ${EMB_CODE}, retrying in ${SMOKE_RETRY_SLEEP}s..."
-            sleep "${SMOKE_RETRY_SLEEP}"
-          done
-
-          if [ "$EMB_CODE" -lt 200 ] || [ "$EMB_CODE" -ge 300 ]; then
-            echo "Embeddings failed after ${SMOKE_MAX_ATTEMPTS} attempts (${EMB_CODE})" >&2
-            cat /tmp/emb.json >&2 || true
-            exit 1
-          fi
-
-          echo "Testing /v1/responses..."
-          RESP_CODE=0
-          for attempt in $(seq 1 "${SMOKE_MAX_ATTEMPTS}"); do
-            curl -sS -o /tmp/resp.json -w "%{http_code}" \
-              -X POST "${GW}/v1/responses" \
-              -H "Content-Type: application/json" \
-              -H "Authorization: Bearer ${GW_KEY}" \
-              -d "{\"model\":\"${TF_VAR_codex_model}\",\"input\":\"Respond with exactly: OK\"}" \
-              > /tmp/resp.code 2>/dev/null || true
-            RESP_CODE=$(cat /tmp/resp.code)
-            if [ "$RESP_CODE" -ge 200 ] && [ "$RESP_CODE" -lt 300 ]; then
-              break
-            fi
-            echo "Attempt ${attempt}/${SMOKE_MAX_ATTEMPTS}: responses returned ${RESP_CODE}, retrying in ${SMOKE_RETRY_SLEEP}s..."
-            sleep "${SMOKE_RETRY_SLEEP}"
-          done
-
-          if [ "$RESP_CODE" -lt 200 ] || [ "$RESP_CODE" -ge 300 ]; then
-            echo "Responses failed after ${SMOKE_MAX_ATTEMPTS} attempts (${RESP_CODE})" >&2
-            cat /tmp/resp.json >&2 || true
-            exit 1
-          fi
-
-          echo "Smoke tests passed."
+        uses: ./.github/actions/smoke-test-gateway
+        with:
+          gateway_url: ${{ steps.gw.outputs.url }}
+          gateway_key: ${{ secrets.AIGATEWAY_KEY }}
+          embedding_model: ${{ env.TF_VAR_embedding_deployment }}
+          codex_model: ${{ env.TF_VAR_codex_model }}
+          max_attempts: "5"
+          retry_sleep: "10"
 
   deploy-prod:
     name: Deploy prod
@@ -376,61 +287,16 @@ jobs:
         run: |
           terraform apply -auto-approve tfplan
 
+      - name: Get gateway URL
+        id: gw
+        run: echo "url=$(terraform output -raw gateway_url)" >> $GITHUB_OUTPUT
+
       - name: Smoke test gateway (embeddings + responses)
-        env:
-          GW_KEY: ${{ secrets.AIGATEWAY_KEY }}
-          SMOKE_MAX_ATTEMPTS: "5"
-          SMOKE_RETRY_SLEEP: "15"
-        run: |
-          set -euo pipefail
-
-          GW=$(terraform output -raw gateway_url)
-          echo "Gateway: ${GW}"
-
-          echo "Testing /v1/embeddings..."
-          EMB_CODE=0
-          for attempt in $(seq 1 "${SMOKE_MAX_ATTEMPTS}"); do
-            curl -sS -o /tmp/emb.json -w "%{http_code}" \
-              -X POST "${GW}/v1/embeddings" \
-              -H "Content-Type: application/json" \
-              -H "Authorization: Bearer ${GW_KEY}" \
-              -d "{\"model\":\"${TF_VAR_embedding_deployment}\",\"input\":\"smoke test\"}" \
-              > /tmp/emb.code 2>/dev/null || true
-            EMB_CODE=$(cat /tmp/emb.code)
-            if [ "$EMB_CODE" -ge 200 ] && [ "$EMB_CODE" -lt 300 ]; then
-              break
-            fi
-            echo "Attempt ${attempt}/${SMOKE_MAX_ATTEMPTS}: embeddings returned ${EMB_CODE}, retrying in ${SMOKE_RETRY_SLEEP}s..."
-            sleep "${SMOKE_RETRY_SLEEP}"
-          done
-
-          if [ "$EMB_CODE" -lt 200 ] || [ "$EMB_CODE" -ge 300 ]; then
-            echo "Embeddings failed after ${SMOKE_MAX_ATTEMPTS} attempts (${EMB_CODE})" >&2
-            cat /tmp/emb.json >&2 || true
-            exit 1
-          fi
-
-          echo "Testing /v1/responses..."
-          RESP_CODE=0
-          for attempt in $(seq 1 "${SMOKE_MAX_ATTEMPTS}"); do
-            curl -sS -o /tmp/resp.json -w "%{http_code}" \
-              -X POST "${GW}/v1/responses" \
-              -H "Content-Type: application/json" \
-              -H "Authorization: Bearer ${GW_KEY}" \
-              -d "{\"model\":\"${TF_VAR_codex_model}\",\"input\":\"Respond with exactly: OK\"}" \
-              > /tmp/resp.code 2>/dev/null || true
-            RESP_CODE=$(cat /tmp/resp.code)
-            if [ "$RESP_CODE" -ge 200 ] && [ "$RESP_CODE" -lt 300 ]; then
-              break
-            fi
-            echo "Attempt ${attempt}/${SMOKE_MAX_ATTEMPTS}: responses returned ${RESP_CODE}, retrying in ${SMOKE_RETRY_SLEEP}s..."
-            sleep "${SMOKE_RETRY_SLEEP}"
-          done
-
-          if [ "$RESP_CODE" -lt 200 ] || [ "$RESP_CODE" -ge 300 ]; then
-            echo "Responses failed after ${SMOKE_MAX_ATTEMPTS} attempts (${RESP_CODE})" >&2
-            cat /tmp/resp.json >&2 || true
-            exit 1
-          fi
-
-          echo "Smoke tests passed."
+        uses: ./.github/actions/smoke-test-gateway
+        with:
+          gateway_url: ${{ steps.gw.outputs.url }}
+          gateway_key: ${{ secrets.AIGATEWAY_KEY }}
+          embedding_model: ${{ env.TF_VAR_embedding_deployment }}
+          codex_model: ${{ env.TF_VAR_codex_model }}
+          max_attempts: "5"
+          retry_sleep: "15"  # prod: longer cold-start; allow more time between retries
