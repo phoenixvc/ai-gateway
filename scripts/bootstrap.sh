@@ -53,13 +53,17 @@ else
     fi
 fi
 
-echo "Creating Storage Container: $CONTAINER_NAME..."
-if ! az storage container create --name "$CONTAINER_NAME" --account-name "$SA_NAME" 2>/dev/null; then
-    if az storage container show --name "$CONTAINER_NAME" --account-name "$SA_NAME" &>/dev/null; then
-        echo "Container $CONTAINER_NAME already exists, reusing."
-    else
-        echo "Error: Failed to create storage container $CONTAINER_NAME."
-        exit 1
+if az storage container show --name "$CONTAINER_NAME" --account-name "$SA_NAME" &>/dev/null; then
+    echo "Reusing existing Storage Container: $CONTAINER_NAME"
+else
+    echo "Creating Storage Container: $CONTAINER_NAME..."
+    if ! az storage container create --name "$CONTAINER_NAME" --account-name "$SA_NAME"; then
+        if az storage container show --name "$CONTAINER_NAME" --account-name "$SA_NAME" &>/dev/null; then
+            echo "Container $CONTAINER_NAME already exists, reusing."
+        else
+            echo "Error: Failed to create storage container $CONTAINER_NAME."
+            exit 1
+        fi
     fi
 fi
 
@@ -124,7 +128,7 @@ echo "  AZURE_TENANT_ID:      $(az account show --query tenantId --output tsv)"
 echo "  AZURE_SUBSCRIPTION_ID: $(az account show --query id --output tsv)"
 echo ""
 echo "Application Secrets (Required for Deployment):"
-echo "  AZURE_OPENAI_API_BASE: <Your Azure OpenAI Endpoint, e.g., https://my-resource.openai.azure.com/>"
+echo "  AZURE_OPENAI_ENDPOINT: <Your Azure OpenAI Endpoint, e.g., https://my-resource.openai.azure.com/>"
 echo "  AZURE_OPENAI_API_KEY:  <Your Azure OpenAI API Key>"
 echo "  AIGATEWAY_KEY:         <A strong random string for your Gateway Auth>"
 echo "======================================================================"

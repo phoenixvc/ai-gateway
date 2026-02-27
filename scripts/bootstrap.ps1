@@ -45,12 +45,21 @@ if ($EXISTING_SA) {
     }
 }
 
-Write-Host "Creating Storage Container: $CONTAINER_NAME..."
-$containerResult = az storage container create --name $CONTAINER_NAME --account-name $SA_NAME 2>&1
-if ($LASTEXITCODE -ne 0) {
-    $showResult = az storage container show --name $CONTAINER_NAME --account-name $SA_NAME 2>&1
-    if ($LASTEXITCODE -eq 0) { Write-Host "Container $CONTAINER_NAME already exists, reusing." }
-    else { Write-Error "Failed to create storage container $CONTAINER_NAME."; exit 1 }
+$null = az storage container show --name $CONTAINER_NAME --account-name $SA_NAME 2>$null
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "Reusing existing Storage Container: $CONTAINER_NAME"
+} else {
+    Write-Host "Creating Storage Container: $CONTAINER_NAME..."
+    az storage container create --name $CONTAINER_NAME --account-name $SA_NAME
+    if ($LASTEXITCODE -ne 0) {
+        $null = az storage container show --name $CONTAINER_NAME --account-name $SA_NAME 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "Container $CONTAINER_NAME already exists, reusing."
+        } else {
+            Write-Error "Failed to create storage container $CONTAINER_NAME. Ensure you have access to the storage account."
+            exit 1
+        }
+    }
 }
 
 $EXISTING_APP = az ad app list --display-name $APP_NAME --query "[0].appId" -o tsv 2>$null
@@ -101,7 +110,13 @@ foreach ($ENV in @("dev","uat","prod")) {
         Write-Host "  Federated credential for $ENV already exists, skipping."
     } else {
         Write-Host "  Adding federated credential for environment: $ENV (subject: $SUBJECT)"
-        $params = '{"name":"github-actions-' + $ENV + '","issuer":"https://token.actions.githubusercontent.com","subject":"' + $SUBJECT + '","description":"GitHub Actions OIDC for ' + $ENV + ' environment","audiences":["api://AzureADTokenExchange"]}'
+        $params = @{
+            name        = "github-actions-$ENV"
+            issuer      = "https://token.actions.githubusercontent.com"
+            subject     = $SUBJECT
+            description = "GitHub Actions OIDC for $ENV environment"
+            audiences   = @("api://AzureADTokenExchange")
+        } | ConvertTo-Json
         az ad app federated-credential create --id $OBJECT_ID --parameters $params
     }
 }
@@ -120,7 +135,7 @@ Write-Host "  AZURE_TENANT_ID:      $AZURE_TENANT_ID"
 Write-Host "  AZURE_SUBSCRIPTION_ID: $SUBSCRIPTION_ID"
 Write-Host ""
 Write-Host "Application Secrets (Required for Deployment):"
-Write-Host "  AZURE_OPENAI_API_BASE: <Your Azure OpenAI Endpoint, e.g., https://my-resource.openai.azure.com/>"
+Write-Host "  AZURE_OPENAI_ENDPOINT: <Your Azure OpenAI Endpoint, e.g., https://my-resource.openai.azure.com/>"
 Write-Host "  AZURE_OPENAI_API_KEY:  <Your Azure OpenAI API Key>"
 Write-Host "  AIGATEWAY_KEY:         <A strong random string for your Gateway Auth>"
 Write-Host "======================================================================"
