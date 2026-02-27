@@ -36,8 +36,8 @@ variable "gateway_key" {
 
 variable "container_image" {
   type        = string
-  description = "LiteLLM container image"
-  default     = "ghcr.io/berriai/litellm:latest"
+  description = "LiteLLM container image (use amd64 digest for Azure Container Apps)"
+  default     = "litellm/litellm:v1.81.15@sha256:d104dae60f1a0c8fc93f837ec30ec4e6430ee70b0d3636874c26bc9920ae34a7"
 }
 
 variable "codex_model" { type = string }

@@ -37,7 +37,7 @@ variable "tags" {
 # LiteLLM container
 variable "container_image" {
   type        = string
-  description = "LiteLLM container image (e.g. ghcr.io/berriai/litellm:v1.34.0)"
+  description = "LiteLLM container image; use amd64 digest for Azure Container Apps (e.g. litellm/litellm:v1.81.15@sha256:...)"
 
 }
 
