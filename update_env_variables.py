@@ -1,4 +1,4 @@
-variable "env" {
+content = """variable "env" {
   type = string
   validation {
     condition     = contains(["dev", "uat", "prod"], var.env)
@@ -61,3 +61,7 @@ variable "secrets_expiration_date" {
   type        = string
   description = "Expiration date for Key Vault secrets (ISO-8601 UTC format, e.g. 2026-12-31T00:00:00Z)"
 }
+"""
+
+with open('infra/env/dev/variables.tf', 'w') as f:
+    f.write(content)

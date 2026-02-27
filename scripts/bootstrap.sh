@@ -2,14 +2,15 @@
 set -e
 
 # --- Usage Check ---
-if [ "$#" -ne 2 ]; then
-    echo "Usage: $0 <GITHUB_ORG> <GITHUB_REPO>"
-    echo "Example: $0 my-org my-repo"
+if [ "$#" -lt 2 ]; then
+    echo "Usage: $0 <GITHUB_ORG> <GITHUB_REPO> [SCOPE]"
+    echo "Example: $0 my-org my-repo /subscriptions/xxxx/resourceGroups/my-rg"
     exit 1
 fi
 
 GITHUB_ORG="$1"
 GITHUB_REPO="$2"
+SCOPE="$3"
 
 # --- Configuration ---
 LOCATION="southafricanorth"
@@ -17,6 +18,16 @@ RG_NAME="pvc-tfstate-rg-san"
 SA_NAME="pvctfstatest$RANDOM"
 CONTAINER_NAME="tfstate"
 APP_NAME="pvc-github-actions-oidc"
+
+# --- Determine Scope ---
+if [ -z "$SCOPE" ]; then
+    SUBSCRIPTION_ID=$(az account show --query id --output tsv)
+    SCOPE="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG_NAME"
+    echo "No scope provided. Defaulting to Resource Group scope: $SCOPE"
+else
+    echo "Using provided scope: $SCOPE"
+fi
+
 
 # --- Create Resource Group and Storage Account for Terraform State ---
 echo "Creating Resource Group: $RG_NAME..."
@@ -31,7 +42,13 @@ az storage container create --name "$CONTAINER_NAME" --account-name "$SA_NAME"
 # --- Create Azure AD Application and Service Principal for GitHub Actions OIDC ---
 echo "Creating Azure AD Application: $APP_NAME..."
 APP_ID=$(az ad app create --display-name "$APP_NAME" --query appId --output tsv)
-SP_ID=$(az ad sp create-for-rbac --name "$APP_NAME" --role "Contributor" --scopes "/subscriptions/$(az account show --query id --output tsv)" --query appId --output tsv)
+
+echo "Creating Service Principal for App: $APP_ID..."
+SP_ID=$(az ad sp create --id "$APP_ID" --query id --output tsv)
+
+echo "Creating Role Assignment (Contributor) on scope: $SCOPE..."
+az role assignment create --assignee "$SP_ID" --role "Contributor" --scope "$SCOPE"
+
 OBJECT_ID=$(az ad app show --id "$APP_ID" --query id --output tsv)
 
 echo "Creating Federated Credential for GitHub Actions..."

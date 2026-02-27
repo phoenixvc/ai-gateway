@@ -1,10 +1,10 @@
 terraform {
-  required_version = ">= 1.6.0"
+  required_version = "~> 1.6.0"
 
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = ">= 3.90.0"
+      version = "~> 3.90.0"
     }
   }
 }
@@ -43,7 +43,7 @@ locals {
       litellm_params:
         model: azure/${var.codex_model}
         api_base: ${var.azure_openai_endpoint}/openai
-        api_key: ${var.azure_openai_api_key}
+        api_key: os.environ/LITELLM_AZURE_OPENAI_API_KEY
         api_version: ${var.codex_api_version}
         # responses api
         # LiteLLM maps OpenAI-compatible surface to Azure responses when available
@@ -52,7 +52,7 @@ locals {
       litellm_params:
         model: azure/${var.embedding_deployment}
         api_base: ${var.azure_openai_endpoint}
-        api_key: ${var.azure_openai_api_key}
+        api_key: os.environ/LITELLM_AZURE_OPENAI_API_KEY
         api_version: ${var.embeddings_api_version}
 
   # Simple auth guard: require x-gateway-key (we implement via LiteLLM master key)
@@ -60,7 +60,7 @@ locals {
   # If you prefer Authorization bearer, swap enforcement accordingly.
   general_settings:
     # master_key works as a shared secret gate in LiteLLM
-    master_key: ${var.gateway_key}
+    master_key: os.environ/LITELLM_GATEWAY_KEY
   YAML
 }
 
@@ -98,21 +98,44 @@ resource "azurerm_key_vault" "kv" {
   purge_protection_enabled   = var.env == "prod" ? true : false
 
   tags = local.tags
+
+  network_acls {
+    bypass         = "AzureServices"
+    default_action = "Deny"
+  }
 }
 
 data "azurerm_client_config" "current" {}
+
+
+resource "azurerm_key_vault_access_policy" "terraform_client" {
+  key_vault_id = azurerm_key_vault.kv.id
+  tenant_id    = data.azurerm_client_config.current.tenant_id
+  object_id    = data.azurerm_client_config.current.object_id
+
+  secret_permissions = [
+    "Get",
+    "List",
+    "Set",
+    "Delete",
+    "Purge",
+    "Recover"
+  ]
+}
 
 # Store secrets in KV (optional but useful)
 resource "azurerm_key_vault_secret" "gateway_key" {
   name         = "gateway-key"
   value        = var.gateway_key
   key_vault_id = azurerm_key_vault.kv.id
+  expiration_date = var.secrets_expiration_date
 }
 
 resource "azurerm_key_vault_secret" "azure_openai_key" {
   name         = "azure-openai-key"
   value        = var.azure_openai_api_key
   key_vault_id = azurerm_key_vault.kv.id
+  expiration_date = var.secrets_expiration_date
 }
 
 # Container App
@@ -122,6 +145,16 @@ resource "azurerm_container_app" "ca" {
   resource_group_name          = azurerm_resource_group.rg.name
   revision_mode                = "Single"
   tags                         = local.tags
+
+    secret {
+    name  = "azure-openai-key"
+    value = var.azure_openai_api_key
+  }
+
+  secret {
+    name  = "gateway-key"
+    value = var.gateway_key
+  }
 
   template {
     min_replicas = var.min_replicas
@@ -136,6 +169,16 @@ resource "azurerm_container_app" "ca" {
       env {
         name  = "LITELLM_CONFIG"
         value = local.litellm_config
+      }
+
+      env {
+        name        = "LITELLM_AZURE_OPENAI_API_KEY"
+        secret_name = "azure-openai-key"
+      }
+
+      env {
+        name        = "LITELLM_GATEWAY_KEY"
+        secret_name = "gateway-key"
       }
 
       # LiteLLM commonly listens on 4000; set port as needed
