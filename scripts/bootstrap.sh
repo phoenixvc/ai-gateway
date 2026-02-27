@@ -4,7 +4,7 @@ set -e
 # --- Usage Check ---
 if [ "$#" -lt 2 ] || [ "$#" -gt 3 ]; then
     echo "Usage: $0 <GITHUB_ORG> <GITHUB_REPO> [SCOPE]"
-    echo "Example: $0 my-org my-repo /subscriptions/xxxx/resourceGroups/my-rg"
+    echo "Example: $0 my-org my-repo   # defaults to subscription scope"
     exit 1
 fi
 
@@ -22,8 +22,8 @@ APP_NAME="pvc-shared-github-actions-oidc"
 # --- Determine Scope ---
 if [ -z "$SCOPE" ]; then
     SUBSCRIPTION_ID=$(az account show --query id --output tsv)
-    SCOPE="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG_NAME"
-    echo "No scope provided. Defaulting to Resource Group scope: $SCOPE"
+    SCOPE="/subscriptions/$SUBSCRIPTION_ID"
+    echo "No scope provided. Defaulting to Subscription scope (required for creating resource groups): $SCOPE"
 else
     echo "Using provided scope: $SCOPE"
 fi
