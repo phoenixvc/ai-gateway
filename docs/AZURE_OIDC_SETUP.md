@@ -2,6 +2,8 @@
 
 This repo uses **Azure OIDC** (OpenID Connect) for GitHub Actions authentication—no long-lived client secrets.
 
+For the full list of required GitHub secrets (infrastructure + application), see [README § Add GitHub secrets](../README.md#2-add-github-secrets).
+
 ## AADSTS700213: No matching federated identity record found
 
 If you see:
