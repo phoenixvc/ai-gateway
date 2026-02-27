@@ -146,7 +146,7 @@ resource "azurerm_container_app" "ca" {
   revision_mode                = "Single"
   tags                         = local.tags
 
-    secret {
+  secret {
     name  = "azure-openai-key"
     value = var.azure_openai_api_key
   }
