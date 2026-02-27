@@ -10,12 +10,14 @@ location_short  = "san"
 azure_openai_endpoint = "https://mys-prod-ai-san.cognitiveservices.azure.com"
 
 codex_model       = "gpt-4o"
+# codex_api_version_reason: Preview required for gpt-4o responses API; monitor Azure docs for GA. Switch to stable when available.
 codex_api_version = "2025-01-01-preview"
 
 embedding_deployment   = "text-embedding-3-large"
 embeddings_api_version = "2024-02-01"
 
-secrets_expiration_date = "2026-03-31T00:00:00Z"
+# Rotate before expiration; alerting/rotation job must reference this. See ops runbook.
+secrets_expiration_date = "2027-03-31T00:00:00Z"
 
 tags = {
   owner    = "ai-gateway-team"

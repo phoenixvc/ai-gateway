@@ -60,4 +60,8 @@ variable "max_replicas" {
 variable "secrets_expiration_date" {
   type        = string
   description = "Expiration date for Key Vault secrets (ISO-8601 UTC format, e.g. 2026-12-31T00:00:00Z)"
+  validation {
+    condition     = can(regex("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$", var.secrets_expiration_date)) && can(timecmp(var.secrets_expiration_date, "1970-01-01T00:00:00Z")) && timecmp(var.secrets_expiration_date, plantimestamp()) > 0
+    error_message = "secrets_expiration_date must be in ISO-8601 UTC format and strictly in the future relative to plan time."
+  }
 }

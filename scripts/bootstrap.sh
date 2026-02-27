@@ -93,6 +93,7 @@ fi
 OBJECT_ID=$(az ad app show --id "$APP_ID" --query id --output tsv)
 
 echo "Ensuring Federated Credentials for GitHub Actions (environments: dev, uat, prod)..."
+command -v jq >/dev/null 2>&1 || { echo "Error: jq is required for safe JSON construction. Install jq and retry."; exit 1; }
 for ENV in dev uat prod; do
   SUBJECT="repo:$GITHUB_ORG/$GITHUB_REPO:environment:$ENV"
   EXISTING_FC=$(az ad app federated-credential list --id "$OBJECT_ID" --query "[?name=='github-actions-$ENV'].name" -o tsv 2>/dev/null | head -n1)
@@ -100,7 +101,13 @@ for ENV in dev uat prod; do
     echo "  Federated credential for $ENV already exists, skipping."
   else
     echo "  Adding federated credential for environment: $ENV (subject: $SUBJECT)"
-    az ad app federated-credential create --id "$OBJECT_ID" --parameters "{\"name\":\"github-actions-$ENV\",\"issuer\":\"https://token.actions.githubusercontent.com\",\"subject\":\"$SUBJECT\",\"description\":\"GitHub Actions OIDC for $ENV environment\",\"audiences\":[\"api://AzureADTokenExchange\"]}"
+    FC_JSON=$(jq -n \
+      --arg name "github-actions-$ENV" \
+      --arg issuer "https://token.actions.githubusercontent.com" \
+      --arg subject "$SUBJECT" \
+      --arg desc "GitHub Actions OIDC for $ENV environment" \
+      '{name: $name, issuer: $issuer, subject: $subject, description: $desc, audiences: ["api://AzureADTokenExchange"]}')
+    az ad app federated-credential create --id "$OBJECT_ID" --parameters "$FC_JSON"
   fi
 done
 

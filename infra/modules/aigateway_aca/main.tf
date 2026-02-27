@@ -140,6 +140,13 @@ resource "azurerm_key_vault_secret" "azure_openai_key" {
 
 # Container App
 resource "azurerm_container_app" "ca" {
+  lifecycle {
+    precondition {
+      condition     = var.min_replicas <= var.max_replicas
+      error_message = "min_replicas (${var.min_replicas}) must not exceed max_replicas (${var.max_replicas})."
+    }
+  }
+
   name                         = local.ca_name
   container_app_environment_id  = azurerm_container_app_environment.cae.id
   resource_group_name          = azurerm_resource_group.rg.name

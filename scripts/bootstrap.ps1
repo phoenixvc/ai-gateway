@@ -24,6 +24,10 @@ if (-not $SCOPE) {
 
 Write-Host "Creating Resource Group: $RG_NAME..."
 az group create --name $RG_NAME --location $LOCATION
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Failed to create resource group $RG_NAME in $LOCATION. Exit code: $LASTEXITCODE"
+    exit 1
+}
 
 $EXISTING_SA = az storage account list --resource-group $RG_NAME --query "[?starts_with(name, 'pvctfstate')].name" -o tsv 2>$null | Select-Object -First 1
 if ($EXISTING_SA) {
@@ -56,6 +60,10 @@ if ($EXISTING_APP) {
 } else {
     Write-Host "Creating Azure AD Application: $APP_NAME..."
     $APP_ID = az ad app create --display-name $APP_NAME --query appId --output tsv
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($APP_ID)) {
+        Write-Error "Failed to create Azure AD application $APP_NAME. az ad app create failed or returned empty appId."
+        exit 1
+    }
 }
 
 $EXISTING_SP = az ad sp list --display-name $APP_NAME --query "[0].id" -o tsv 2>$null
@@ -65,6 +73,10 @@ if ($EXISTING_SP) {
 } else {
     Write-Host "Creating Service Principal for App: $APP_ID..."
     $SP_ID = az ad sp create --id $APP_ID --query id --output tsv
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($SP_ID)) {
+        Write-Error "Failed to create Service Principal for app $APP_ID. az ad sp create failed or returned empty id."
+        exit 1
+    }
 }
 
 $EXISTING_ROLE = az role assignment list --assignee $SP_ID --scope $SCOPE --role "Contributor" --query "[0].id" -o tsv 2>$null
@@ -73,6 +85,10 @@ if ($EXISTING_ROLE) {
 } else {
     Write-Host "Creating Role Assignment (Contributor) on scope: $SCOPE..."
     az role assignment create --assignee $SP_ID --role "Contributor" --scope $SCOPE
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Failed to assign Contributor role to SP $SP_ID on scope $SCOPE. Exit code: $LASTEXITCODE"
+        exit 1
+    }
 }
 
 $OBJECT_ID = az ad app show --id $APP_ID --query id --output tsv
