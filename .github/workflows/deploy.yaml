@@ -137,15 +137,18 @@ jobs:
         working-directory: infra/env/prod
 
     env:
+      # Terraform Variables (Environment Specific)
       TF_VAR_env: "prod"
       TF_VAR_projname: "aigateway"
       TF_VAR_location: "southafricanorth"
       TF_VAR_location_short: "san"
 
+      # Terraform Variables (Secrets & Config)
       TF_VAR_azure_openai_endpoint: ${{ secrets.AZURE_OPENAI_API_BASE }}
       TF_VAR_azure_openai_api_key: ${{ secrets.AZURE_OPENAI_API_KEY }}
       TF_VAR_gateway_key: ${{ secrets.AIGATEWAY_KEY }}
 
+      # Model Configuration (Defaults, can be overridden by secrets if needed)
       TF_VAR_codex_model: "gpt-5.3-codex"
       TF_VAR_codex_api_version: "2025-04-01-preview"
       TF_VAR_embedding_deployment: "text-embedding-3-large"

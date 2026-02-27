@@ -16,7 +16,7 @@ provider "azurerm" {
 resource "azurerm_resource_group" "rg" {
   name     = var.resource_group_name
   location = var.location
-  tags     = merge(var.tags, { owner = var.owner })
+  tags     = merge({ project = "tfstate", owner = var.owner }, var.tags)
 }
 
 resource "azurerm_storage_account" "st" {
@@ -27,7 +27,7 @@ resource "azurerm_storage_account" "st" {
   account_replication_type = "LRS"
 
   # Hardening defaults
-  min_tls_version          = "TLS1_2"
+  min_tls_version                 = "TLS1_2"
   allow_nested_items_to_be_public = false
 
   network_rules {
@@ -50,7 +50,7 @@ resource "azurerm_storage_account" "st" {
     }
   }
 
-  tags = merge(var.tags, { owner = var.owner })
+  tags = merge({ project = "tfstate", owner = var.owner }, var.tags)
 }
 
 resource "azurerm_storage_container" "ct" {
