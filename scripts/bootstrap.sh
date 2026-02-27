@@ -63,23 +63,45 @@ if ! az storage container create --name "$CONTAINER_NAME" --account-name "$SA_NA
     fi
 fi
 
-# --- Create Azure AD Application and Service Principal for GitHub Actions OIDC ---
-echo "Creating Azure AD Application: $APP_NAME..."
-APP_ID=$(az ad app create --display-name "$APP_NAME" --query appId --output tsv)
+# --- Create or reuse Azure AD Application and Service Principal for GitHub Actions OIDC ---
+EXISTING_APP=$(az ad app list --display-name "$APP_NAME" --query "[0].appId" -o tsv 2>/dev/null)
+if [ -n "$EXISTING_APP" ]; then
+  APP_ID="$EXISTING_APP"
+  echo "Reusing existing Azure AD Application: $APP_NAME ($APP_ID)"
+else
+  echo "Creating Azure AD Application: $APP_NAME..."
+  APP_ID=$(az ad app create --display-name "$APP_NAME" --query appId --output tsv)
+fi
 
-echo "Creating Service Principal for App: $APP_ID..."
-SP_ID=$(az ad sp create --id "$APP_ID" --query id --output tsv)
+EXISTING_SP=$(az ad sp list --display-name "$APP_NAME" --query "[0].id" -o tsv 2>/dev/null)
+if [ -n "$EXISTING_SP" ]; then
+  SP_ID="$EXISTING_SP"
+  echo "Reusing existing Service Principal: $APP_NAME ($SP_ID)"
+else
+  echo "Creating Service Principal for App: $APP_ID..."
+  SP_ID=$(az ad sp create --id "$APP_ID" --query id --output tsv)
+fi
 
-echo "Creating Role Assignment (Contributor) on scope: $SCOPE..."
-az role assignment create --assignee "$SP_ID" --role "Contributor" --scope "$SCOPE"
+EXISTING_ROLE=$(az role assignment list --assignee "$SP_ID" --scope "$SCOPE" --role "Contributor" --query "[0].id" -o tsv 2>/dev/null)
+if [ -n "$EXISTING_ROLE" ]; then
+  echo "Role Assignment (Contributor) already exists on scope: $SCOPE"
+else
+  echo "Creating Role Assignment (Contributor) on scope: $SCOPE..."
+  az role assignment create --assignee "$SP_ID" --role "Contributor" --scope "$SCOPE"
+fi
 
 OBJECT_ID=$(az ad app show --id "$APP_ID" --query id --output tsv)
 
-echo "Creating Federated Credentials for GitHub Actions (environments: dev, uat, prod)..."
+echo "Ensuring Federated Credentials for GitHub Actions (environments: dev, uat, prod)..."
 for ENV in dev uat prod; do
   SUBJECT="repo:$GITHUB_ORG/$GITHUB_REPO:environment:$ENV"
-  echo "  Adding federated credential for environment: $ENV (subject: $SUBJECT)"
-  az ad app federated-credential create --id "$OBJECT_ID" --parameters "{\"name\":\"github-actions-$ENV\",\"issuer\":\"https://token.actions.githubusercontent.com\",\"subject\":\"$SUBJECT\",\"description\":\"GitHub Actions OIDC for $ENV environment\",\"audiences\":[\"api://AzureADTokenExchange\"]}"
+  EXISTING_FC=$(az ad app federated-credential list --id "$OBJECT_ID" --query "[?name=='github-actions-$ENV'].name" -o tsv 2>/dev/null | head -n1)
+  if [ -n "$EXISTING_FC" ]; then
+    echo "  Federated credential for $ENV already exists, skipping."
+  else
+    echo "  Adding federated credential for environment: $ENV (subject: $SUBJECT)"
+    az ad app federated-credential create --id "$OBJECT_ID" --parameters "{\"name\":\"github-actions-$ENV\",\"issuer\":\"https://token.actions.githubusercontent.com\",\"subject\":\"$SUBJECT\",\"description\":\"GitHub Actions OIDC for $ENV environment\",\"audiences\":[\"api://AzureADTokenExchange\"]}"
+  fi
 done
 
 echo ""
