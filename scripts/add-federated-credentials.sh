@@ -22,10 +22,11 @@ APP_ID="$1"
 GITHUB_ORG="$2"
 GITHUB_REPO="$3"
 
-OBJECT_ID=$(az ad app show --id "$APP_ID" --query id --output tsv 2>/dev/null || {
+OBJECT_ID=$(az ad app show --id "$APP_ID" --query id --output tsv 2>/dev/null)
+if [ -z "$OBJECT_ID" ]; then
     echo "Error: Could not find app with ID $APP_ID. Ensure you're logged in (az login) and the app exists."
     exit 1
-})
+fi
 
 command -v jq >/dev/null 2>&1 || { echo "Error: jq is required for safe JSON construction. Install jq and retry."; exit 1; }
 

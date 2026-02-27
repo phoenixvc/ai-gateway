@@ -73,7 +73,7 @@ if ($LASTEXITCODE -eq 0) {
     }
 }
 
-$appMatches = @(az ad app list --display-name $APP_NAME --query "[].appId" -o tsv 2>$null)
+$appMatches = @(az ad app list --display-name $APP_NAME --query "[].appId" -o tsv 2>$null | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
 if ($appMatches.Count -gt 1) {
     Write-Error "Multiple Azure AD applications found with display-name '$APP_NAME'. Resolve ambiguity manually."
     exit 1

@@ -109,8 +109,7 @@ if [ -n "$EXISTING_ROLE" ]; then
   echo "Role Assignment (Contributor) already exists on scope: $SCOPE"
 else
   echo "Creating Role Assignment (Contributor) on scope: $SCOPE..."
-  az role assignment create --assignee-object-id "$SP_ID" --assignee-principal-type ServicePrincipal --role "Contributor" --scope "$SCOPE"
-  if [ $? -ne 0 ]; then
+  if ! az role assignment create --assignee-object-id "$SP_ID" --assignee-principal-type ServicePrincipal --role "Contributor" --scope "$SCOPE"; then
     echo "Error: Failed to assign Contributor role to SP on scope $SCOPE."
     exit 1
   fi

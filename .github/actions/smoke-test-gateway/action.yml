@@ -25,6 +25,7 @@ runs:
   using: composite
   steps:
     - name: Smoke test gateway (embeddings + responses)
+      shell: bash
       env:
         GW: ${{ inputs.gateway_url }}
         GW_KEY: ${{ inputs.gateway_key }}
@@ -44,7 +45,8 @@ runs:
             -H "Authorization: Bearer ${GW_KEY}" \
             -d "{\"model\":\"${EMB_MODEL}\",\"input\":\"smoke test\"}" \
             > /tmp/emb.code 2>/dev/null || true
-          EMB_CODE=$(cat /tmp/emb.code)
+          EMB_CODE=$(cat /tmp/emb.code 2>/dev/null || echo "")
+          [ -z "$EMB_CODE" ] || [[ ! "$EMB_CODE" =~ ^[0-9]+$ ]] && EMB_CODE=0
           if [ "$EMB_CODE" -ge 200 ] && [ "$EMB_CODE" -lt 300 ]; then
             break
           fi
@@ -65,7 +67,8 @@ runs:
             -H "Authorization: Bearer ${GW_KEY}" \
             -d "{\"model\":\"${CODEX_MODEL}\",\"input\":\"Respond with exactly: OK\"}" \
             > /tmp/resp.code 2>/dev/null || true
-          RESP_CODE=$(cat /tmp/resp.code)
+          RESP_CODE=$(cat /tmp/resp.code 2>/dev/null || echo "")
+          [ -z "$RESP_CODE" ] || [[ ! "$RESP_CODE" =~ ^[0-9]+$ ]] && RESP_CODE=0
           if [ "$RESP_CODE" -ge 200 ] && [ "$RESP_CODE" -lt 300 ]; then
             break
           fi
