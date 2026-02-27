@@ -22,26 +22,26 @@ env:
   TF_BACKEND_SA: ${{ secrets.TF_BACKEND_SA }}
   TF_BACKEND_CONTAINER: ${{ secrets.TF_BACKEND_CONTAINER }}
   TF_VAR_secrets_expiration_date: "2027-03-31T00:00:00Z"
-  SKIP_UAT: "true"  # Set to "false" when ready for UAT deploys on PR into main
 
 jobs:
   plan:
-    # PR into dev → dev | PR into main → uat (when !SKIP_UAT) | Push to main → prod
+    # PR into dev → dev | PR into main → uat (when vars.SKIP_UAT != 'true') | Push to main → prod
     # Skip plan for PRs from forks (no repo secrets; avoids AADSTS700213)
+    # Set repository variable SKIP_UAT to "false" when ready for UAT deploys on PR into main
     if: |
       (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) &&
       (
         (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
         (github.event_name == 'workflow_dispatch') ||
         (github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev') ||
-        (github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'main' && env.SKIP_UAT != 'true')
+        (github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'main' && (vars.SKIP_UAT || 'true') != 'true')
       )
     name: Plan ${{ matrix.environment }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        environment: ${{ (github.event_name == 'workflow_dispatch' && fromJSON('["prod"]')) || (github.event_name == 'push' && github.ref == 'refs/heads/main' && fromJSON('["prod"]')) || (github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev' && fromJSON('["dev"]')) || (github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'main' && env.SKIP_UAT != 'true' && fromJSON('["uat"]')) || fromJSON('["prod"]') }}
+        environment: ${{ (github.event_name == 'workflow_dispatch' && fromJSON('["prod"]')) || (github.event_name == 'push' && github.ref == 'refs/heads/main' && fromJSON('["prod"]')) || (github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev' && fromJSON('["dev"]')) || (github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'main' && (vars.SKIP_UAT || 'true') != 'true' && fromJSON('["uat"]')) || fromJSON('["prod"]') }}
     environment: ${{ matrix.environment }}
     defaults:
       run:
@@ -175,7 +175,7 @@ jobs:
     name: Deploy uat
     needs: plan
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'main' && env.SKIP_UAT != 'true'
+    if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'main' && (vars.SKIP_UAT || 'true') != 'true'
     environment: uat
     defaults:
       run:
