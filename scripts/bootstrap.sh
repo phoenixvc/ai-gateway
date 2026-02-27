@@ -41,7 +41,7 @@ if [ -n "$EXISTING_SA" ]; then
 else
     SUFFIX=$(echo -n "$SUBSCRIPTION_ID" | openssl dgst -md5 2>/dev/null | awk '{print $NF}' | cut -c1-12)
     [ -z "$SUFFIX" ] && { echo "Error: Failed to compute deterministic suffix for storage account name."; exit 1; }
-    SA_NAME="pvctfstatest${SUFFIX}"
+    SA_NAME="pvctfstate${SUFFIX}"
     echo "Creating Storage Account: $SA_NAME..."
     if ! az storage account create --resource-group "$RG_NAME" --name "$SA_NAME" --sku Standard_LRS --encryption-services blob 2>/dev/null; then
         if az storage account show --name "$SA_NAME" --resource-group "$RG_NAME" &>/dev/null; then
