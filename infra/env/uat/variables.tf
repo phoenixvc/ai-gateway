@@ -60,4 +60,8 @@ variable "max_replicas" {
 variable "secrets_expiration_date" {
   type        = string
   description = "Expiration date for Key Vault secrets (ISO-8601 UTC format, e.g. 2026-12-31T00:00:00Z)"
+  validation {
+    condition     = can(regex("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$", var.secrets_expiration_date))
+    error_message = "secrets_expiration_date must be in ISO-8601 UTC format: YYYY-MM-DDTHH:MM:SSZ (e.g. 2026-12-31T00:00:00Z)."
+  }
 }
