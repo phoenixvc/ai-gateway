@@ -13,11 +13,12 @@ GITHUB_REPO="$2"
 SCOPE="$3"
 
 # --- Configuration ---
+# Shared infra: OIDC app and TF state span dev/uat/prod
 LOCATION="southafricanorth"
-RG_NAME="pvc-tfstate-rg-san"
+RG_NAME="pvc-shared-tfstate-rg-san"
 SA_NAME="pvctfstatest$RANDOM"
 CONTAINER_NAME="tfstate"
-APP_NAME="pvc-github-actions-oidc"
+APP_NAME="pvc-shared-github-actions-oidc"
 
 # --- Determine Scope ---
 if [ -z "$SCOPE" ]; then

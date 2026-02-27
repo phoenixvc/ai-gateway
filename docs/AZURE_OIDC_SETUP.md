@@ -23,12 +23,12 @@ If you already ran `bootstrap.sh` (which previously created only branch-based cr
 To get `AZURE_CLIENT_ID` from an existing app:
 
 ```bash
-az ad app list --display-name pvc-github-actions-oidc --query "[0].appId" -o tsv
+az ad app list --display-name pvc-shared-github-actions-oidc --query "[0].appId" -o tsv
 ```
 
 ### Manual setup (Azure Portal)
 
-1. Go to **Azure Portal** → **Microsoft Entra ID** → **App registrations** → your app
+1. Go to **Azure Portal** → **Microsoft Entra ID** → **App registrations** → your app (e.g. `pvc-shared-github-actions-oidc`)
 2. **Certificates & secrets** → **Federated credentials** → **Add credential**
 3. For each environment (dev, uat, prod), add:
    - **Federated credential scenario:** GitHub Actions deploying Azure resources
