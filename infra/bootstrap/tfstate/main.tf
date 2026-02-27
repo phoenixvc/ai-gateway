@@ -16,7 +16,7 @@ provider "azurerm" {
 resource "azurerm_resource_group" "rg" {
   name     = var.resource_group_name
   location = var.location
-  tags     = var.tags
+  tags     = merge(var.tags, { owner = var.owner })
 }
 
 resource "azurerm_storage_account" "st" {
@@ -29,6 +29,13 @@ resource "azurerm_storage_account" "st" {
   # Hardening defaults
   min_tls_version          = "TLS1_2"
   allow_nested_items_to_be_public = false
+
+  network_rules {
+    default_action             = "Deny"
+    bypass                     = ["AzureServices"]
+    ip_rules                   = var.allowed_ip_ranges
+    virtual_network_subnet_ids = var.allowed_subnet_ids
+  }
 
   # Recommended for state
   blob_properties {
@@ -43,7 +50,7 @@ resource "azurerm_storage_account" "st" {
     }
   }
 
-  tags = var.tags
+  tags = merge(var.tags, { owner = var.owner })
 }
 
 resource "azurerm_storage_container" "ct" {
