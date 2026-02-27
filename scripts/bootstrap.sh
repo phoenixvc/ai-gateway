@@ -53,12 +53,18 @@ else
     fi
 fi
 
-if az storage container show --name "$CONTAINER_NAME" --account-name "$SA_NAME" &>/dev/null; then
+unset AZURE_STORAGE_ACCOUNT AZURE_STORAGE_CONNECTION_STRING AZURE_STORAGE_KEY AZURE_STORAGE_SAS_TOKEN 2>/dev/null || true
+STORAGE_CONN=$(az storage account show-connection-string --name "$SA_NAME" --resource-group "$RG_NAME" --query connectionString -o tsv 2>/dev/null)
+if [ -z "$STORAGE_CONN" ]; then
+    echo "Error: Failed to get connection string for storage account $SA_NAME."
+    exit 1
+fi
+if az storage container show --name "$CONTAINER_NAME" --connection-string "$STORAGE_CONN" &>/dev/null; then
     echo "Reusing existing Storage Container: $CONTAINER_NAME"
 else
     echo "Creating Storage Container: $CONTAINER_NAME..."
-    if ! az storage container create --name "$CONTAINER_NAME" --account-name "$SA_NAME"; then
-        if az storage container show --name "$CONTAINER_NAME" --account-name "$SA_NAME" &>/dev/null; then
+    if ! az storage container create --name "$CONTAINER_NAME" --connection-string "$STORAGE_CONN"; then
+        if az storage container show --name "$CONTAINER_NAME" --connection-string "$STORAGE_CONN" &>/dev/null; then
             echo "Container $CONTAINER_NAME already exists, reusing."
         else
             echo "Error: Failed to create storage container $CONTAINER_NAME."
