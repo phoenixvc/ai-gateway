@@ -29,10 +29,144 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        environment: [dev, uat, prod]
+        environment: [dev, uat]
+    environment: ${{ matrix.environment }}
     defaults:
       run:
         working-directory: infra/env/${{ matrix.environment }}
+
+    env:
+      # Terraform Variables (Environment Specific)
+      TF_VAR_env: "${{ matrix.environment }}"
+      TF_VAR_projname: "aigateway"
+      TF_VAR_location: "southafricanorth"
+      TF_VAR_location_short: "san"
+
+      # Terraform Variables (Secrets & Config)
+      TF_VAR_azure_openai_endpoint: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
+      TF_VAR_azure_openai_api_key: ${{ secrets.AZURE_OPENAI_API_KEY }}
+      TF_VAR_gateway_key: ${{ secrets.AIGATEWAY_KEY }} # Renamed from LITELLM_MASTER_KEY to align with blueprint
+
+      # Model Configuration (Defaults, can be overridden by secrets if needed)
+      TF_VAR_codex_model: "gpt-5.3-codex"
+      TF_VAR_codex_api_version: "2025-04-01-preview"
+      TF_VAR_embedding_deployment: "text-embedding-3-large"
+      TF_VAR_embeddings_api_version: "2023-05-15"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: |
+          terraform init \
+            -backend-config="resource_group_name=${{ secrets.TF_BACKEND_RG }}" \
+            -backend-config="storage_account_name=${{ secrets.TF_BACKEND_SA }}" \
+            -backend-config="container_name=${{ secrets.TF_BACKEND_CONTAINER }}" \
+            -backend-config="key=terraform.tfstate"
+
+      - name: Terraform Plan
+        run: |
+          terraform plan -out=tfplan
+
+      - name: Terraform Apply
+        if: github.ref == 'refs/heads/main'
+        run: |
+          terraform apply -auto-approve tfplan
+
+      - name: Smoke test gateway (embeddings + responses)
+        env:
+          GW_KEY: ${{ secrets.AIGATEWAY_KEY }}
+          SMOKE_MAX_ATTEMPTS: "5"
+          SMOKE_RETRY_SLEEP: "15"
+        run: |
+          set -euo pipefail
+
+          GW=$(terraform output -raw gateway_url)
+          echo "Gateway: ${GW}"
+
+          echo "Testing /v1/embeddings..."
+          EMB_CODE=0
+          for attempt in $(seq 1 "${SMOKE_MAX_ATTEMPTS}"); do
+            # The model is dynamically inserted from the Terraform environment variable
+            curl -sS -o /tmp/emb.json -w "%{http_code}" \
+              -X POST "${GW}/v1/embeddings" \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer ${GW_KEY}" \
+              -d "{\"model\":\"${TF_VAR_embedding_deployment}\",\"input\":\"smoke test\"}" \
+              > /tmp/emb.code 2>/dev/null || true
+            EMB_CODE=$(cat /tmp/emb.code)
+            if [ "$EMB_CODE" -ge 200 ] && [ "$EMB_CODE" -lt 300 ]; then
+              break
+            fi
+            echo "Attempt ${attempt}/${SMOKE_MAX_ATTEMPTS}: embeddings returned ${EMB_CODE}, retrying in ${SMOKE_RETRY_SLEEP}s..."
+            sleep "${SMOKE_RETRY_SLEEP}"
+          done
+
+          if [ "$EMB_CODE" -lt 200 ] || [ "$EMB_CODE" -ge 300 ]; then
+            echo "Embeddings failed after ${SMOKE_MAX_ATTEMPTS} attempts (${EMB_CODE})" >&2
+            cat /tmp/emb.json >&2 || true
+            exit 1
+          fi
+
+          echo "Testing /v1/responses..."
+          # The model is dynamically inserted from the Terraform environment variable
+          curl -sS -o /tmp/resp.json -w "%{http_code}" \
+            -X POST "${GW}/v1/responses" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${GW_KEY}" \
+            -d "{\"model\":\"${TF_VAR_codex_model}\",\"input\":\"Respond with exactly: OK\"}" \
+            | tee /tmp/resp.code
+
+          RESP_CODE=$(cat /tmp/resp.code)
+          if [ "$RESP_CODE" -lt 200 ] || [ "$RESP_CODE" -ge 300 ]; then
+            echo "Responses failed (${RESP_CODE})" >&2
+            cat /tmp/resp.json >&2 || true
+            exit 1
+          fi
+
+          echo "Smoke tests passed."
+
+  deploy-prod:
+    runs-on: ubuntu-latest
+    needs: [deploy]
+    environment: prod
+    defaults:
+      run:
+        working-directory: infra/env/prod
+
+    env:
+      # Azure credentials (inherited from workflow-level env)
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      
+      # Terraform Variables (Environment Specific)
+      TF_VAR_env: "prod"
+      TF_VAR_projname: "aigateway"
+      TF_VAR_location: "southafricanorth"
+      TF_VAR_location_short: "san"
+
+      # Terraform Variables (Secrets & Config)
+      TF_VAR_azure_openai_endpoint: ${{ secrets.AZURE_OPENAI_API_BASE }}
+      TF_VAR_azure_openai_api_key: ${{ secrets.AZURE_OPENAI_API_KEY }}
+      TF_VAR_gateway_key: ${{ secrets.AIGATEWAY_KEY }}
+
+      # Model Configuration (Defaults, can be overridden by secrets if needed)
+      TF_VAR_codex_model: "gpt-5.3-codex"
+      TF_VAR_codex_api_version: "2025-04-01-preview"
+      TF_VAR_embedding_deployment: "text-embedding-3-large"
+      TF_VAR_embeddings_api_version: "2023-05-15"
 
     steps:
       - name: Checkout code
@@ -122,7 +256,7 @@ jobs:
         env:
           GW_KEY: ${{ secrets.AIGATEWAY_KEY }}
           SMOKE_MAX_ATTEMPTS: "5"
-          SMOKE_RETRY_SLEEP: "15"
+          SMOKE_RETRY_SLEEP: "10"
         run: |
           set -euo pipefail
 
