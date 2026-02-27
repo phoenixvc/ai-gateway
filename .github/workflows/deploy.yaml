@@ -79,7 +79,7 @@ jobs:
         env:
           GW_KEY: ${{ secrets.AIGATEWAY_KEY }}
           SMOKE_MAX_ATTEMPTS: "5"
-          SMOKE_RETRY_SLEEP: "10"
+          SMOKE_RETRY_DELAY: "15"
         run: |
           set -euo pipefail
 
@@ -89,6 +89,7 @@ jobs:
           echo "Testing /v1/embeddings..."
           EMB_CODE=0
           for attempt in $(seq 1 "${SMOKE_MAX_ATTEMPTS}"); do
+            # The model is dynamically inserted from the Terraform environment variable
             curl -sS -o /tmp/emb.json -w "%{http_code}" \
               -X POST "${GW}/v1/embeddings" \
               -H "Content-Type: application/json" \
@@ -140,6 +141,7 @@ jobs:
       AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
       AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      
       # Terraform Variables (Environment Specific)
       TF_VAR_env: "prod"
       TF_VAR_projname: "aigateway"
