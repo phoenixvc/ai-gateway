@@ -24,6 +24,7 @@ env:
 
 jobs:
   plan:
+    # PR → plan dev | Push to main / workflow_dispatch → plan prod (UAT is separate)
     # Skip plan for PRs from forks (no repo secrets; avoids AADSTS700213)
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false
     name: Plan ${{ matrix.environment }}
@@ -31,7 +32,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        environment: [prod]
+        environment: ${{ github.event_name == 'pull_request' && fromJSON('["dev"]') || fromJSON('["prod"]') }}
     environment: ${{ matrix.environment }}
     defaults:
       run:
