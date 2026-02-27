@@ -6,6 +6,7 @@ on:
       - main
   pull_request:
     branches:
+      - dev
       - main
   workflow_dispatch:
 
@@ -21,18 +22,26 @@ env:
   TF_BACKEND_SA: ${{ secrets.TF_BACKEND_SA }}
   TF_BACKEND_CONTAINER: ${{ secrets.TF_BACKEND_CONTAINER }}
   TF_VAR_secrets_expiration_date: "2027-03-31T00:00:00Z"
+  SKIP_UAT: "true"  # Set to "false" when ready for UAT deploys on PR into main
 
 jobs:
   plan:
-    # PR → plan dev | Push to main / workflow_dispatch → plan prod (UAT is separate)
+    # PR into dev → dev | PR into main → uat (when !SKIP_UAT) | Push to main → prod
     # Skip plan for PRs from forks (no repo secrets; avoids AADSTS700213)
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false
+    if: |
+      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) &&
+      (
+        (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+        (github.event_name == 'workflow_dispatch') ||
+        (github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev') ||
+        (github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'main' && env.SKIP_UAT != 'true')
+      )
     name: Plan ${{ matrix.environment }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        environment: ${{ github.event_name == 'pull_request' && fromJSON('["dev"]') || fromJSON('["prod"]') }}
+        environment: ${{ (github.event_name == 'workflow_dispatch' && fromJSON('["prod"]')) || (github.event_name == 'push' && github.ref == 'refs/heads/main' && fromJSON('["prod"]')) || (github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev' && fromJSON('["dev"]')) || (github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'main' && env.SKIP_UAT != 'true' && fromJSON('["uat"]')) || fromJSON('["prod"]') }}
     environment: ${{ matrix.environment }}
     defaults:
       run:
@@ -90,6 +99,148 @@ jobs:
           name: tfplan-${{ matrix.environment }}
           path: infra/env/${{ matrix.environment }}/tfplan
           retention-days: 1
+
+  deploy-dev:
+    name: Deploy dev
+    needs: plan
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev'
+    environment: dev
+    defaults:
+      run:
+        working-directory: infra/env/dev
+
+    env:
+      TF_VAR_env: "dev"
+      TF_VAR_projname: "aigateway"
+      TF_VAR_location: "southafricanorth"
+      TF_VAR_location_short: "san"
+      TF_VAR_azure_openai_endpoint: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
+      TF_VAR_azure_openai_api_key: ${{ secrets.AZURE_OPENAI_API_KEY }}
+      TF_VAR_gateway_key: ${{ secrets.AIGATEWAY_KEY }}
+      TF_VAR_codex_model: "gpt-5.3-codex"
+      TF_VAR_codex_api_version: "2025-04-01-preview"
+      TF_VAR_embedding_deployment: "text-embedding-3-large"
+      TF_VAR_embeddings_api_version: "2023-05-15"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.14.6
+
+      - name: Terraform Init
+        run: |
+          terraform init \
+            -backend-config="resource_group_name=${TF_BACKEND_RG}" \
+            -backend-config="storage_account_name=${TF_BACKEND_SA}" \
+            -backend-config="container_name=${TF_BACKEND_CONTAINER}" \
+            -backend-config="key=dev.terraform.tfstate"
+
+      - name: Download Plan
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan-dev
+          path: infra/env/dev
+
+      - name: Terraform Apply
+        run: |
+          terraform apply -auto-approve tfplan
+
+      - name: Get gateway URL
+        id: gw
+        run: echo "url=$(terraform output -raw gateway_url)" >> $GITHUB_OUTPUT
+
+      - name: Smoke test gateway (embeddings + responses)
+        uses: ./.github/actions/smoke-test-gateway
+        with:
+          gateway_url: ${{ steps.gw.outputs.url }}
+          gateway_key: ${{ secrets.AIGATEWAY_KEY }}
+          embedding_model: ${{ env.TF_VAR_embedding_deployment }}
+          codex_model: ${{ env.TF_VAR_codex_model }}
+          max_attempts: "5"
+          retry_sleep: "10"
+
+  deploy-uat:
+    name: Deploy uat
+    needs: plan
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'main' && env.SKIP_UAT != 'true'
+    environment: uat
+    defaults:
+      run:
+        working-directory: infra/env/uat
+
+    env:
+      TF_VAR_env: "uat"
+      TF_VAR_projname: "aigateway"
+      TF_VAR_location: "southafricanorth"
+      TF_VAR_location_short: "san"
+      TF_VAR_azure_openai_endpoint: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
+      TF_VAR_azure_openai_api_key: ${{ secrets.AZURE_OPENAI_API_KEY }}
+      TF_VAR_gateway_key: ${{ secrets.AIGATEWAY_KEY }}
+      TF_VAR_codex_model: "gpt-5.3-codex"
+      TF_VAR_codex_api_version: "2025-04-01-preview"
+      TF_VAR_embedding_deployment: "text-embedding-3-large"
+      TF_VAR_embeddings_api_version: "2023-05-15"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.14.6
+
+      - name: Terraform Init
+        run: |
+          terraform init \
+            -backend-config="resource_group_name=${TF_BACKEND_RG}" \
+            -backend-config="storage_account_name=${TF_BACKEND_SA}" \
+            -backend-config="container_name=${TF_BACKEND_CONTAINER}" \
+            -backend-config="key=uat.terraform.tfstate"
+
+      - name: Download Plan
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan-uat
+          path: infra/env/uat
+
+      - name: Terraform Apply
+        run: |
+          terraform apply -auto-approve tfplan
+
+      - name: Get gateway URL
+        id: gw
+        run: echo "url=$(terraform output -raw gateway_url)" >> $GITHUB_OUTPUT
+
+      - name: Smoke test gateway (embeddings + responses)
+        uses: ./.github/actions/smoke-test-gateway
+        with:
+          gateway_url: ${{ steps.gw.outputs.url }}
+          gateway_key: ${{ secrets.AIGATEWAY_KEY }}
+          embedding_model: ${{ env.TF_VAR_embedding_deployment }}
+          codex_model: ${{ env.TF_VAR_codex_model }}
+          max_attempts: "5"
+          retry_sleep: "10"
 
   deploy-prod:
     name: Deploy prod
