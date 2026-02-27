@@ -14,7 +14,7 @@ if [ "$#" -ne 3 ]; then
     echo "Adds federated identity credentials for dev, uat, prod environments"
     echo "to an existing Azure AD app registration (fixes AADSTS700213)."
     echo ""
-    echo "Example: $0 \$(az ad app list --display-name pvc-github-actions-oidc --query [0].appId -o tsv) phoenixvc ai-gateway"
+    echo "Example: $0 \$(az ad app list --display-name pvc-shared-github-actions-oidc --query [0].appId -o tsv) phoenixvc ai-gateway"
     exit 1
 fi
 

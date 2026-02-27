@@ -13,11 +13,11 @@ GITHUB_REPO="$2"
 SCOPE="$3"
 
 # --- Configuration ---
+# Shared infra: OIDC app and TF state span dev/uat/prod
 LOCATION="southafricanorth"
-RG_NAME="pvc-tfstate-rg-san"
-SA_NAME="pvctfstatest$RANDOM"
+RG_NAME="pvc-shared-tfstate-rg-san"
 CONTAINER_NAME="tfstate"
-APP_NAME="pvc-github-actions-oidc"
+APP_NAME="pvc-shared-github-actions-oidc"
 
 # --- Determine Scope ---
 if [ -z "$SCOPE" ]; then
@@ -33,11 +33,35 @@ fi
 echo "Creating Resource Group: $RG_NAME..."
 az group create --name "$RG_NAME" --location "$LOCATION"
 
-echo "Creating Storage Account: $SA_NAME..."
-az storage account create --resource-group "$RG_NAME" --name "$SA_NAME" --sku Standard_LRS --encryption-services blob
+SUBSCRIPTION_ID=$(az account show --query id --output tsv 2>/dev/null) || { echo "Error: Failed to get Azure subscription ID. Ensure you are logged in (az login)."; exit 1; }
+EXISTING_SA=$(az storage account list --resource-group "$RG_NAME" --query "[?starts_with(name, 'pvctfstate')].name" -o tsv 2>/dev/null | head -n1)
+if [ -n "$EXISTING_SA" ]; then
+    SA_NAME="$EXISTING_SA"
+    echo "Reusing existing Storage Account: $SA_NAME"
+else
+    SUFFIX=$(echo -n "$SUBSCRIPTION_ID" | openssl dgst -md5 2>/dev/null | awk '{print $NF}' | cut -c1-12)
+    [ -z "$SUFFIX" ] && { echo "Error: Failed to compute deterministic suffix for storage account name."; exit 1; }
+    SA_NAME="pvctfstatest${SUFFIX}"
+    echo "Creating Storage Account: $SA_NAME..."
+    if ! az storage account create --resource-group "$RG_NAME" --name "$SA_NAME" --sku Standard_LRS --encryption-services blob 2>/dev/null; then
+        if az storage account show --name "$SA_NAME" --resource-group "$RG_NAME" &>/dev/null; then
+            echo "Storage account $SA_NAME already exists, reusing."
+        else
+            echo "Error: Failed to create storage account $SA_NAME."
+            exit 1
+        fi
+    fi
+fi
 
 echo "Creating Storage Container: $CONTAINER_NAME..."
-az storage container create --name "$CONTAINER_NAME" --account-name "$SA_NAME"
+if ! az storage container create --name "$CONTAINER_NAME" --account-name "$SA_NAME" 2>/dev/null; then
+    if az storage container show --name "$CONTAINER_NAME" --account-name "$SA_NAME" &>/dev/null; then
+        echo "Container $CONTAINER_NAME already exists, reusing."
+    else
+        echo "Error: Failed to create storage container $CONTAINER_NAME."
+        exit 1
+    fi
+fi
 
 # --- Create Azure AD Application and Service Principal for GitHub Actions OIDC ---
 echo "Creating Azure AD Application: $APP_NAME..."
