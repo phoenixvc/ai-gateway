@@ -15,6 +15,8 @@ codex_api_version = "2025-01-01-preview"
 embedding_deployment   = "text-embedding-3-large"
 embeddings_api_version = "2024-02-01"
 
+secrets_expiration_date = "2026-03-31T00:00:00Z"
+
 tags = {
   owner    = "ai-gateway-team"
   project  = "aigateway"

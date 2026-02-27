@@ -43,11 +43,11 @@ jobs:
       TF_VAR_azure_openai_api_key: ${{ secrets.AZURE_OPENAI_API_KEY }}
       TF_VAR_gateway_key: ${{ secrets.AIGATEWAY_KEY }}
 
-      # Model Configuration
-      TF_VAR_codex_model: "gpt-5.3-codex"
-      TF_VAR_codex_api_version: "2025-04-01-preview"
+      # Model Configuration (environment-specific to match deploy jobs)
+      TF_VAR_codex_model: ${{ matrix.environment == 'prod' && 'gpt-4o' || 'gpt-5.3-codex' }}
+      TF_VAR_codex_api_version: ${{ matrix.environment == 'prod' && '2025-01-01-preview' || '2025-04-01-preview' }}
       TF_VAR_embedding_deployment: "text-embedding-3-large"
-      TF_VAR_embeddings_api_version: "2023-05-15"
+      TF_VAR_embeddings_api_version: ${{ matrix.environment == 'prod' && '2024-02-01' || '2023-05-15' }}
 
     steps:
       - name: Checkout code
@@ -86,7 +86,7 @@ jobs:
     name: Deploy dev
     needs: plan
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     environment: dev
     defaults:
       run:
@@ -94,6 +94,7 @@ jobs:
 
     env:
       TF_VAR_env: "dev"
+      TF_VAR_secrets_expiration_date: "2026-03-31T00:00:00Z"
       TF_VAR_projname: "aigateway"
       TF_VAR_location: "southafricanorth"
       TF_VAR_location_short: "san"
@@ -199,6 +200,7 @@ jobs:
 
     env:
       TF_VAR_env: "uat"
+      TF_VAR_secrets_expiration_date: "2026-03-31T00:00:00Z"
       TF_VAR_projname: "aigateway"
       TF_VAR_location: "southafricanorth"
       TF_VAR_location_short: "san"
@@ -304,6 +306,7 @@ jobs:
 
     env:
       TF_VAR_env: "prod"
+      TF_VAR_secrets_expiration_date: "2026-03-31T00:00:00Z"
       TF_VAR_projname: "aigateway"
       TF_VAR_location: "southafricanorth"
       TF_VAR_location_short: "san"
