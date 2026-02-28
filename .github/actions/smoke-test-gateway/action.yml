@@ -36,6 +36,68 @@ runs:
       run: |
         set -euo pipefail
         echo "Gateway: ${GW}"
+
+        fetch_models() {
+          local models_code=0
+          for attempt in $(seq 1 "${SMOKE_MAX_ATTEMPTS}"); do
+            curl -sS -o /tmp/models.json -w "%{http_code}" \
+              -X GET "${GW}/v1/models" \
+              -H "Authorization: Bearer ${GW_KEY}" \
+              > /tmp/models.code 2>/dev/null || true
+            models_code=$(cat /tmp/models.code 2>/dev/null || echo "")
+            [ -z "$models_code" ] || [[ ! "$models_code" =~ ^[0-9]+$ ]] && models_code=0
+            if [ "$models_code" -ge 200 ] && [ "$models_code" -lt 300 ]; then
+              return 0
+            fi
+            echo "Attempt ${attempt}/${SMOKE_MAX_ATTEMPTS}: /v1/models returned ${models_code}, retrying in ${SMOKE_RETRY_SLEEP}s..."
+            sleep "${SMOKE_RETRY_SLEEP}"
+          done
+          return 1
+        }
+
+        resolve_effective_models() {
+          EMB_EFFECTIVE="${EMB_MODEL}"
+          CODEX_EFFECTIVE="${CODEX_MODEL}"
+
+          if ! command -v jq >/dev/null 2>&1; then
+            echo "jq not found; using requested models as-is."
+            return 0
+          fi
+
+          jq -r '.data[]?.id // empty' /tmp/models.json | sed '/^$/d' > /tmp/models.ids || true
+          if [ ! -s /tmp/models.ids ]; then
+            echo "No models listed by /v1/models; using requested models as-is."
+            return 0
+          fi
+
+          if ! grep -Fxq "${EMB_MODEL}" /tmp/models.ids; then
+            EMB_CANDIDATE=$(grep -Ei 'embed|embedding' /tmp/models.ids | head -n1 || true)
+            if [ -n "${EMB_CANDIDATE:-}" ]; then
+              EMB_EFFECTIVE="${EMB_CANDIDATE}"
+              echo "Requested embedding model '${EMB_MODEL}' not available; using '${EMB_EFFECTIVE}'."
+            fi
+          fi
+
+          if ! grep -Fxq "${CODEX_MODEL}" /tmp/models.ids; then
+            RESP_CANDIDATE=$(grep -Eiv 'embed|embedding' /tmp/models.ids | head -n1 || true)
+            if [ -n "${RESP_CANDIDATE:-}" ]; then
+              CODEX_EFFECTIVE="${RESP_CANDIDATE}"
+              echo "Requested responses model '${CODEX_MODEL}' not available; using '${CODEX_EFFECTIVE}'."
+            fi
+          fi
+
+          echo "Using embedding model: ${EMB_EFFECTIVE}"
+          echo "Using responses model: ${CODEX_EFFECTIVE}"
+        }
+
+        if fetch_models; then
+          resolve_effective_models
+        else
+          echo "Unable to fetch /v1/models after retries; using requested models as-is."
+          EMB_EFFECTIVE="${EMB_MODEL}"
+          CODEX_EFFECTIVE="${CODEX_MODEL}"
+        fi
+
         echo "Testing /v1/embeddings..."
         EMB_CODE=0
         for attempt in $(seq 1 "${SMOKE_MAX_ATTEMPTS}"); do
@@ -43,7 +105,7 @@ runs:
             -X POST "${GW}/v1/embeddings" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer ${GW_KEY}" \
-            -d "{\"model\":\"${EMB_MODEL}\",\"input\":\"smoke test\"}" \
+            -d "{\"model\":\"${EMB_EFFECTIVE}\",\"input\":\"smoke test\"}" \
             > /tmp/emb.code 2>/dev/null || true
           EMB_CODE=$(cat /tmp/emb.code 2>/dev/null || echo "")
           [ -z "$EMB_CODE" ] || [[ ! "$EMB_CODE" =~ ^[0-9]+$ ]] && EMB_CODE=0
@@ -65,7 +127,7 @@ runs:
             -X POST "${GW}/v1/responses" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer ${GW_KEY}" \
-            -d "{\"model\":\"${CODEX_MODEL}\",\"input\":\"Respond with exactly: OK\"}" \
+            -d "{\"model\":\"${CODEX_EFFECTIVE}\",\"input\":\"Respond with exactly: OK\"}" \
             > /tmp/resp.code 2>/dev/null || true
           RESP_CODE=$(cat /tmp/resp.code 2>/dev/null || echo "")
           [ -z "$RESP_CODE" ] || [[ ! "$RESP_CODE" =~ ^[0-9]+$ ]] && RESP_CODE=0
