@@ -28,19 +28,19 @@ Creates the shared resource group, storage account, and container for Terraform 
 
 Add these secrets to each GitHub **Environment** (dev, uat, prod): **Settings → Environments → &lt;env&gt; → Environment secrets**.
 
-| Secret | Description | Example |
-|--------|-------------|---------|
-| **Infrastructure** | | |
-| `TF_BACKEND_RG` | Terraform state resource group | `pvc-shared-tfstate-rg-san` |
-| `TF_BACKEND_SA` | Terraform state storage account | `pvctfstatexxxxxxxx` |
-| `TF_BACKEND_CONTAINER` | Terraform state container | `tfstate` |
-| `AZURE_CLIENT_ID` | OIDC app (from bootstrap) | `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` |
-| `AZURE_TENANT_ID` | Azure tenant ID | `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` |
-| `AZURE_SUBSCRIPTION_ID` | Azure subscription ID | `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` |
-| **Application** | | |
-| `AZURE_OPENAI_ENDPOINT` | Azure OpenAI endpoint URL | `https://mys-shared-ai-san.openai.azure.com/` |
-| `AZURE_OPENAI_API_KEY` | Azure OpenAI API key | Your Azure OpenAI key |
-| `AIGATEWAY_KEY` | Gateway auth key (from bootstrap) | Base64 string from bootstrap output |
+| Secret                  | Description                       | Example                                       |
+| ----------------------- | --------------------------------- | --------------------------------------------- |
+| **Infrastructure**      |                                   |                                               |
+| `TF_BACKEND_RG`         | Terraform state resource group    | `pvc-shared-tfstate-rg-san`                   |
+| `TF_BACKEND_SA`         | Terraform state storage account   | `pvctfstatexxxxxxxx`                          |
+| `TF_BACKEND_CONTAINER`  | Terraform state container         | `tfstate`                                     |
+| `AZURE_CLIENT_ID`       | OIDC app (from bootstrap)         | `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`        |
+| `AZURE_TENANT_ID`       | Azure tenant ID                   | `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`        |
+| `AZURE_SUBSCRIPTION_ID` | Azure subscription ID             | `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`        |
+| **Application**         |                                   |                                               |
+| `AZURE_OPENAI_ENDPOINT` | Azure OpenAI endpoint URL         | `https://mys-shared-ai-san.openai.azure.com/` |
+| `AZURE_OPENAI_API_KEY`  | Azure OpenAI API key              | Your Azure OpenAI key                         |
+| `AIGATEWAY_KEY`         | Gateway auth key (from bootstrap) | Base64 string from bootstrap output           |
 
 Bootstrap prints these values. For local runs, copy `infra/.env.local.example` to `infra/.env.local` with the infrastructure values.
 
@@ -70,11 +70,11 @@ terraform apply
 
 ## Environments
 
-| Env  | Purpose        |
-|------|----------------|
-| dev  | Development    |
-| uat  | User acceptance|
-| prod | Production     |
+| Env  | Purpose         |
+| ---- | --------------- |
+| dev  | Development     |
+| uat  | User acceptance |
+| prod | Production      |
 
 ## CI/CD
 
@@ -86,3 +86,4 @@ terraform apply
 - [PRD](docs/PRD.md) – Product requirements
 - [Terraform Blueprint](docs/Terraform_Blueprint.md) – Infrastructure design
 - [Azure OIDC Setup](docs/AZURE_OIDC_SETUP.md) – GitHub Actions OIDC configuration
+- [Secrets Checklist](docs/SECRETS.md) – Copy/paste setup for GitHub environment secrets

@@ -69,6 +69,41 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Quickcheck required secrets and config
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=0
+          required=(
+            AZURE_CLIENT_ID
+            AZURE_TENANT_ID
+            AZURE_SUBSCRIPTION_ID
+            TF_BACKEND_RG
+            TF_BACKEND_SA
+            TF_BACKEND_CONTAINER
+            TF_VAR_azure_openai_endpoint
+            TF_VAR_azure_openai_api_key
+            TF_VAR_gateway_key
+          )
+          for v in "${required[@]}"; do
+            if [ -z "${!v:-}" ]; then
+              echo "::error::Missing required value: ${v}"
+              missing=1
+            else
+              echo "${v}=SET"
+            fi
+          done
+          echo "TF_VAR_env=${TF_VAR_env:-unset}"
+          echo "TF_VAR_embedding_deployment=${TF_VAR_embedding_deployment:-unset}"
+          echo "TF_VAR_codex_model=${TF_VAR_codex_model:-unset}"
+          if [ -n "${TF_VAR_azure_openai_endpoint:-}" ]; then
+            endpoint_host=$(echo "${TF_VAR_azure_openai_endpoint}" | sed -E 's#^https?://([^/]+)/?.*$#\1#')
+            echo "Azure OpenAI endpoint host=${endpoint_host}"
+          fi
+          if [ "${missing}" -ne 0 ]; then
+            exit 1
+          fi
+
       - name: Azure Login
         uses: azure/login@v2
         with:
@@ -126,6 +161,41 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Quickcheck required secrets and config
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=0
+          required=(
+            AZURE_CLIENT_ID
+            AZURE_TENANT_ID
+            AZURE_SUBSCRIPTION_ID
+            TF_BACKEND_RG
+            TF_BACKEND_SA
+            TF_BACKEND_CONTAINER
+            TF_VAR_azure_openai_endpoint
+            TF_VAR_azure_openai_api_key
+            TF_VAR_gateway_key
+          )
+          for v in "${required[@]}"; do
+            if [ -z "${!v:-}" ]; then
+              echo "::error::Missing required value: ${v}"
+              missing=1
+            else
+              echo "${v}=SET"
+            fi
+          done
+          echo "TF_VAR_env=${TF_VAR_env:-unset}"
+          echo "TF_VAR_embedding_deployment=${TF_VAR_embedding_deployment:-unset}"
+          echo "TF_VAR_codex_model=${TF_VAR_codex_model:-unset}"
+          if [ -n "${TF_VAR_azure_openai_endpoint:-}" ]; then
+            endpoint_host=$(echo "${TF_VAR_azure_openai_endpoint}" | sed -E 's#^https?://([^/]+)/?.*$#\1#')
+            echo "Azure OpenAI endpoint host=${endpoint_host}"
+          fi
+          if [ "${missing}" -ne 0 ]; then
+            exit 1
+          fi
 
       - name: Azure Login
         uses: azure/login@v2
@@ -198,6 +268,41 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Quickcheck required secrets and config
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=0
+          required=(
+            AZURE_CLIENT_ID
+            AZURE_TENANT_ID
+            AZURE_SUBSCRIPTION_ID
+            TF_BACKEND_RG
+            TF_BACKEND_SA
+            TF_BACKEND_CONTAINER
+            TF_VAR_azure_openai_endpoint
+            TF_VAR_azure_openai_api_key
+            TF_VAR_gateway_key
+          )
+          for v in "${required[@]}"; do
+            if [ -z "${!v:-}" ]; then
+              echo "::error::Missing required value: ${v}"
+              missing=1
+            else
+              echo "${v}=SET"
+            fi
+          done
+          echo "TF_VAR_env=${TF_VAR_env:-unset}"
+          echo "TF_VAR_embedding_deployment=${TF_VAR_embedding_deployment:-unset}"
+          echo "TF_VAR_codex_model=${TF_VAR_codex_model:-unset}"
+          if [ -n "${TF_VAR_azure_openai_endpoint:-}" ]; then
+            endpoint_host=$(echo "${TF_VAR_azure_openai_endpoint}" | sed -E 's#^https?://([^/]+)/?.*$#\1#')
+            echo "Azure OpenAI endpoint host=${endpoint_host}"
+          fi
+          if [ "${missing}" -ne 0 ]; then
+            exit 1
+          fi
+
       - name: Azure Login
         uses: azure/login@v2
         with:
@@ -268,6 +373,41 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Quickcheck required secrets and config
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=0
+          required=(
+            AZURE_CLIENT_ID
+            AZURE_TENANT_ID
+            AZURE_SUBSCRIPTION_ID
+            TF_BACKEND_RG
+            TF_BACKEND_SA
+            TF_BACKEND_CONTAINER
+            TF_VAR_azure_openai_endpoint
+            TF_VAR_azure_openai_api_key
+            TF_VAR_gateway_key
+          )
+          for v in "${required[@]}"; do
+            if [ -z "${!v:-}" ]; then
+              echo "::error::Missing required value: ${v}"
+              missing=1
+            else
+              echo "${v}=SET"
+            fi
+          done
+          echo "TF_VAR_env=${TF_VAR_env:-unset}"
+          echo "TF_VAR_embedding_deployment=${TF_VAR_embedding_deployment:-unset}"
+          echo "TF_VAR_codex_model=${TF_VAR_codex_model:-unset}"
+          if [ -n "${TF_VAR_azure_openai_endpoint:-}" ]; then
+            endpoint_host=$(echo "${TF_VAR_azure_openai_endpoint}" | sed -E 's#^https?://([^/]+)/?.*$#\1#')
+            echo "Azure OpenAI endpoint host=${endpoint_host}"
+          fi
+          if [ "${missing}" -ne 0 ]; then
+            exit 1
+          fi
 
       - name: Azure Login
         uses: azure/login@v2

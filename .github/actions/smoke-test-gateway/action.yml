@@ -37,21 +37,62 @@ runs:
         set -euo pipefail
         echo "Gateway: ${GW}"
 
+        if [[ "${GW_KEY}" =~ ^[Bb]earer[[:space:]]+.+$ ]]; then
+          AUTH_HEADER_VALUE="${GW_KEY}"
+        else
+          AUTH_HEADER_VALUE="Bearer ${GW_KEY}"
+        fi
+        echo "Auth header mode: $([[ "${GW_KEY}" =~ ^[Bb]earer[[:space:]]+.+$ ]] && echo 'pass-through' || echo 'Bearer prefix')"
+
+        MODELS_CODE=0
+
         fetch_models() {
           local models_code=0
           for attempt in $(seq 1 "${SMOKE_MAX_ATTEMPTS}"); do
             curl -sS -o /tmp/models.json -w "%{http_code}" \
               -X GET "${GW}/v1/models" \
-              -H "Authorization: Bearer ${GW_KEY}" \
+              -H "Authorization: ${AUTH_HEADER_VALUE}" \
               > /tmp/models.code 2>/dev/null || true
             models_code=$(cat /tmp/models.code 2>/dev/null || echo "")
             [ -z "$models_code" ] || [[ ! "$models_code" =~ ^[0-9]+$ ]] && models_code=0
             if [ "$models_code" -ge 200 ] && [ "$models_code" -lt 300 ]; then
+              MODELS_CODE="$models_code"
               return 0
             fi
             echo "Attempt ${attempt}/${SMOKE_MAX_ATTEMPTS}: /v1/models returned ${models_code}, retrying in ${SMOKE_RETRY_SLEEP}s..."
             sleep "${SMOKE_RETRY_SLEEP}"
           done
+          MODELS_CODE="$models_code"
+          return 1
+        }
+
+        dump_models_diagnostics() {
+          echo "--- /v1/models diagnostics ---"
+          echo "HTTP: ${MODELS_CODE}"
+          if [ -s /tmp/models.json ]; then
+            echo "Body (first 1200 chars):"
+            head -c 1200 /tmp/models.json || true
+            echo
+          else
+            echo "Body: <empty>"
+          fi
+          echo "-------------------------------"
+        }
+
+        probe_embedding_model() {
+          local candidate="$1"
+          local code=0
+          curl -sS -o /tmp/emb_probe.json -w "%{http_code}" \
+            -X POST "${GW}/v1/embeddings" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: ${AUTH_HEADER_VALUE}" \
+            -d "{\"model\":\"${candidate}\",\"input\":\"smoke test\"}" \
+            > /tmp/emb_probe.code 2>/dev/null || true
+          code=$(cat /tmp/emb_probe.code 2>/dev/null || echo "")
+          [ -z "$code" ] || [[ ! "$code" =~ ^[0-9]+$ ]] && code=0
+          if [ "$code" -ge 200 ] && [ "$code" -lt 300 ]; then
+            return 0
+          fi
           return 1
         }
 
@@ -67,8 +108,12 @@ runs:
           jq -r '.data[]?.id // empty' /tmp/models.json | sed '/^$/d' > /tmp/models.ids || true
           if [ ! -s /tmp/models.ids ]; then
             echo "No models listed by /v1/models; using requested models as-is."
+            dump_models_diagnostics
             return 0
           fi
+
+          echo "Models returned by /v1/models:"
+          head -n 30 /tmp/models.ids | sed 's/^/- /'
 
           if ! grep -Fxq "${EMB_MODEL}" /tmp/models.ids; then
             EMB_CANDIDATE=$(grep -Ei 'embed|embedding' /tmp/models.ids | head -n1 || true)
@@ -90,13 +135,42 @@ runs:
           echo "Using responses model: ${CODEX_EFFECTIVE}"
         }
 
+        refine_embedding_with_probes() {
+          : > /tmp/emb.candidates
+          {
+            echo "${EMB_EFFECTIVE:-}"
+            echo "${EMB_MODEL}"
+            echo "text-embedding-3-large"
+            echo "text-embedding-3-small"
+            echo "text-embedding-ada-002"
+            if [ -s /tmp/models.ids ]; then
+              grep -Ei 'embed|embedding' /tmp/models.ids || true
+            fi
+          } | sed '/^$/d' | awk '!seen[$0]++' > /tmp/emb.candidates
+
+          while IFS= read -r candidate; do
+            echo "Probing embedding candidate: ${candidate}"
+            if probe_embedding_model "${candidate}"; then
+              EMB_EFFECTIVE="${candidate}"
+              echo "Selected embedding model from probe: ${EMB_EFFECTIVE}"
+              return 0
+            fi
+          done < /tmp/emb.candidates
+
+          echo "No embedding probe candidate succeeded; keeping '${EMB_EFFECTIVE}'."
+          return 0
+        }
+
         if fetch_models; then
           resolve_effective_models
         else
           echo "Unable to fetch /v1/models after retries; using requested models as-is."
           EMB_EFFECTIVE="${EMB_MODEL}"
           CODEX_EFFECTIVE="${CODEX_MODEL}"
+          dump_models_diagnostics
         fi
+
+        refine_embedding_with_probes
 
         echo "Testing /v1/embeddings..."
         EMB_CODE=0
@@ -104,7 +178,7 @@ runs:
           curl -sS -o /tmp/emb.json -w "%{http_code}" \
             -X POST "${GW}/v1/embeddings" \
             -H "Content-Type: application/json" \
-            -H "Authorization: Bearer ${GW_KEY}" \
+            -H "Authorization: ${AUTH_HEADER_VALUE}" \
             -d "{\"model\":\"${EMB_EFFECTIVE}\",\"input\":\"smoke test\"}" \
             > /tmp/emb.code 2>/dev/null || true
           EMB_CODE=$(cat /tmp/emb.code 2>/dev/null || echo "")
@@ -126,7 +200,7 @@ runs:
           curl -sS -o /tmp/resp.json -w "%{http_code}" \
             -X POST "${GW}/v1/responses" \
             -H "Content-Type: application/json" \
-            -H "Authorization: Bearer ${GW_KEY}" \
+            -H "Authorization: ${AUTH_HEADER_VALUE}" \
             -d "{\"model\":\"${CODEX_EFFECTIVE}\",\"input\":\"Respond with exactly: OK\"}" \
             > /tmp/resp.code 2>/dev/null || true
           RESP_CODE=$(cat /tmp/resp.code 2>/dev/null || echo "")
