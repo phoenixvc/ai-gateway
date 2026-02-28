@@ -47,9 +47,11 @@ runs:
         set -euo pipefail
         echo "Gateway: ${GW}"
         if [ -n "${AOAI_ENDPOINT:-}" ]; then
+          echo "Configured Azure OpenAI endpoint: ${AOAI_ENDPOINT}"
           AOAI_HOST=$(echo "${AOAI_ENDPOINT}" | sed -E 's#^https?://([^/]+)/?.*$#\1#')
           echo "Configured Azure OpenAI endpoint host: ${AOAI_HOST}"
         else
+          echo "Configured Azure OpenAI endpoint: <not provided>"
           echo "Configured Azure OpenAI endpoint host: <not provided>"
         fi
         if [ -n "${AOAI_KEY:-}" ]; then

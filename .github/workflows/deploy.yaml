@@ -97,6 +97,7 @@ jobs:
           echo "TF_VAR_embedding_deployment=${TF_VAR_embedding_deployment:-unset}"
           echo "TF_VAR_codex_model=${TF_VAR_codex_model:-unset}"
           if [ -n "${TF_VAR_azure_openai_endpoint:-}" ]; then
+            echo "Azure OpenAI endpoint=${TF_VAR_azure_openai_endpoint}"
             endpoint_host=$(echo "${TF_VAR_azure_openai_endpoint}" | sed -E 's#^https?://([^/]+)/?.*$#\1#')
             echo "Azure OpenAI endpoint host=${endpoint_host}"
           fi
@@ -190,6 +191,7 @@ jobs:
           echo "TF_VAR_embedding_deployment=${TF_VAR_embedding_deployment:-unset}"
           echo "TF_VAR_codex_model=${TF_VAR_codex_model:-unset}"
           if [ -n "${TF_VAR_azure_openai_endpoint:-}" ]; then
+            echo "Azure OpenAI endpoint=${TF_VAR_azure_openai_endpoint}"
             endpoint_host=$(echo "${TF_VAR_azure_openai_endpoint}" | sed -E 's#^https?://([^/]+)/?.*$#\1#')
             echo "Azure OpenAI endpoint host=${endpoint_host}"
           fi
@@ -230,6 +232,27 @@ jobs:
       - name: Get gateway URL
         id: gw
         run: echo "url=$(terraform output -raw gateway_url)" >> $GITHUB_OUTPUT
+
+      - name: Runtime diagnostics (Container App config)
+        shell: bash
+        run: |
+          set -euo pipefail
+          RG_NAME="pvc-${TF_VAR_env}-${TF_VAR_projname}-rg-${TF_VAR_location_short}"
+          CA_NAME="pvc-${TF_VAR_env}-${TF_VAR_projname}-ca-${TF_VAR_location_short}"
+          echo "Resource Group: ${RG_NAME}"
+          echo "Container App: ${CA_NAME}"
+          echo "Gateway URL (terraform output): ${{ steps.gw.outputs.url }}"
+          echo "Latest revision:"
+          az containerapp show -g "${RG_NAME}" -n "${CA_NAME}" --query "properties.latestRevisionName" -o tsv
+          echo "Active revisions (name, active, created):"
+          az containerapp revision list -g "${RG_NAME}" -n "${CA_NAME}" --query "[].{name:name,active:properties.active,created:properties.createdTime}" -o table
+          echo "Configured env vars for LiteLLM secret refs:"
+          az containerapp show -g "${RG_NAME}" -n "${CA_NAME}" --query "properties.template.containers[0].env[?name=='LITELLM_AZURE_OPENAI_API_KEY' || name=='LITELLM_GATEWAY_KEY']" -o json
+          echo "Configured secret sources (names + key vault URLs):"
+          az containerapp show -g "${RG_NAME}" -n "${CA_NAME}" --query "properties.configuration.secrets[].{name:name,keyVaultUrl:keyVaultUrl}" -o table
+          echo "LITELLM_CONFIG excerpt (first 2000 chars):"
+          az containerapp show -g "${RG_NAME}" -n "${CA_NAME}" --query "properties.template.containers[0].env[?name=='LITELLM_CONFIG'].value | [0]" -o tsv | head -c 2000 || true
+          echo
 
       - name: Smoke test gateway (embeddings + responses)
         uses: ./.github/actions/smoke-test-gateway
@@ -298,6 +321,7 @@ jobs:
           echo "TF_VAR_embedding_deployment=${TF_VAR_embedding_deployment:-unset}"
           echo "TF_VAR_codex_model=${TF_VAR_codex_model:-unset}"
           if [ -n "${TF_VAR_azure_openai_endpoint:-}" ]; then
+            echo "Azure OpenAI endpoint=${TF_VAR_azure_openai_endpoint}"
             endpoint_host=$(echo "${TF_VAR_azure_openai_endpoint}" | sed -E 's#^https?://([^/]+)/?.*$#\1#')
             echo "Azure OpenAI endpoint host=${endpoint_host}"
           fi
@@ -338,6 +362,27 @@ jobs:
       - name: Get gateway URL
         id: gw
         run: echo "url=$(terraform output -raw gateway_url)" >> $GITHUB_OUTPUT
+
+      - name: Runtime diagnostics (Container App config)
+        shell: bash
+        run: |
+          set -euo pipefail
+          RG_NAME="pvc-${TF_VAR_env}-${TF_VAR_projname}-rg-${TF_VAR_location_short}"
+          CA_NAME="pvc-${TF_VAR_env}-${TF_VAR_projname}-ca-${TF_VAR_location_short}"
+          echo "Resource Group: ${RG_NAME}"
+          echo "Container App: ${CA_NAME}"
+          echo "Gateway URL (terraform output): ${{ steps.gw.outputs.url }}"
+          echo "Latest revision:"
+          az containerapp show -g "${RG_NAME}" -n "${CA_NAME}" --query "properties.latestRevisionName" -o tsv
+          echo "Active revisions (name, active, created):"
+          az containerapp revision list -g "${RG_NAME}" -n "${CA_NAME}" --query "[].{name:name,active:properties.active,created:properties.createdTime}" -o table
+          echo "Configured env vars for LiteLLM secret refs:"
+          az containerapp show -g "${RG_NAME}" -n "${CA_NAME}" --query "properties.template.containers[0].env[?name=='LITELLM_AZURE_OPENAI_API_KEY' || name=='LITELLM_GATEWAY_KEY']" -o json
+          echo "Configured secret sources (names + key vault URLs):"
+          az containerapp show -g "${RG_NAME}" -n "${CA_NAME}" --query "properties.configuration.secrets[].{name:name,keyVaultUrl:keyVaultUrl}" -o table
+          echo "LITELLM_CONFIG excerpt (first 2000 chars):"
+          az containerapp show -g "${RG_NAME}" -n "${CA_NAME}" --query "properties.template.containers[0].env[?name=='LITELLM_CONFIG'].value | [0]" -o tsv | head -c 2000 || true
+          echo
 
       - name: Smoke test gateway (embeddings + responses)
         uses: ./.github/actions/smoke-test-gateway
@@ -406,6 +451,7 @@ jobs:
           echo "TF_VAR_embedding_deployment=${TF_VAR_embedding_deployment:-unset}"
           echo "TF_VAR_codex_model=${TF_VAR_codex_model:-unset}"
           if [ -n "${TF_VAR_azure_openai_endpoint:-}" ]; then
+            echo "Azure OpenAI endpoint=${TF_VAR_azure_openai_endpoint}"
             endpoint_host=$(echo "${TF_VAR_azure_openai_endpoint}" | sed -E 's#^https?://([^/]+)/?.*$#\1#')
             echo "Azure OpenAI endpoint host=${endpoint_host}"
           fi
@@ -446,6 +492,27 @@ jobs:
       - name: Get gateway URL
         id: gw
         run: echo "url=$(terraform output -raw gateway_url)" >> $GITHUB_OUTPUT
+
+      - name: Runtime diagnostics (Container App config)
+        shell: bash
+        run: |
+          set -euo pipefail
+          RG_NAME="pvc-${TF_VAR_env}-${TF_VAR_projname}-rg-${TF_VAR_location_short}"
+          CA_NAME="pvc-${TF_VAR_env}-${TF_VAR_projname}-ca-${TF_VAR_location_short}"
+          echo "Resource Group: ${RG_NAME}"
+          echo "Container App: ${CA_NAME}"
+          echo "Gateway URL (terraform output): ${{ steps.gw.outputs.url }}"
+          echo "Latest revision:"
+          az containerapp show -g "${RG_NAME}" -n "${CA_NAME}" --query "properties.latestRevisionName" -o tsv
+          echo "Active revisions (name, active, created):"
+          az containerapp revision list -g "${RG_NAME}" -n "${CA_NAME}" --query "[].{name:name,active:properties.active,created:properties.createdTime}" -o table
+          echo "Configured env vars for LiteLLM secret refs:"
+          az containerapp show -g "${RG_NAME}" -n "${CA_NAME}" --query "properties.template.containers[0].env[?name=='LITELLM_AZURE_OPENAI_API_KEY' || name=='LITELLM_GATEWAY_KEY']" -o json
+          echo "Configured secret sources (names + key vault URLs):"
+          az containerapp show -g "${RG_NAME}" -n "${CA_NAME}" --query "properties.configuration.secrets[].{name:name,keyVaultUrl:keyVaultUrl}" -o table
+          echo "LITELLM_CONFIG excerpt (first 2000 chars):"
+          az containerapp show -g "${RG_NAME}" -n "${CA_NAME}" --query "properties.template.containers[0].env[?name=='LITELLM_CONFIG'].value | [0]" -o tsv | head -c 2000 || true
+          echo
 
       - name: Smoke test gateway (embeddings + responses)
         uses: ./.github/actions/smoke-test-gateway
