@@ -13,6 +13,14 @@ inputs:
   codex_model:
     required: true
     description: Codex model for responses endpoint
+  aoai_endpoint:
+    required: false
+    default: ""
+    description: Optional Azure OpenAI endpoint for diagnostics
+  aoai_api_key:
+    required: false
+    default: ""
+    description: Optional Azure OpenAI API key for diagnostics (fingerprint only)
   max_attempts:
     required: false
     default: "5"
@@ -31,11 +39,26 @@ runs:
         GW_KEY: ${{ inputs.gateway_key }}
         EMB_MODEL: ${{ inputs.embedding_model }}
         CODEX_MODEL: ${{ inputs.codex_model }}
+        AOAI_ENDPOINT: ${{ inputs.aoai_endpoint }}
+        AOAI_KEY: ${{ inputs.aoai_api_key }}
         SMOKE_MAX_ATTEMPTS: ${{ inputs.max_attempts }}
         SMOKE_RETRY_SLEEP: ${{ inputs.retry_sleep }}
       run: |
         set -euo pipefail
         echo "Gateway: ${GW}"
+        if [ -n "${AOAI_ENDPOINT:-}" ]; then
+          AOAI_HOST=$(echo "${AOAI_ENDPOINT}" | sed -E 's#^https?://([^/]+)/?.*$#\1#')
+          echo "Configured Azure OpenAI endpoint host: ${AOAI_HOST}"
+        else
+          echo "Configured Azure OpenAI endpoint host: <not provided>"
+        fi
+        if [ -n "${AOAI_KEY:-}" ]; then
+          AOAI_KEY_LEN=$(printf '%s' "${AOAI_KEY}" | wc -c | tr -d '[:space:]')
+          AOAI_KEY_FP=$(printf '%s' "${AOAI_KEY}" | sha256sum | awk '{print substr($1,1,12)}')
+          echo "Configured Azure OpenAI API key fingerprint: sha256:${AOAI_KEY_FP} (len=${AOAI_KEY_LEN})"
+        else
+          echo "Configured Azure OpenAI API key fingerprint: <not provided>"
+        fi
 
         if [[ "${GW_KEY}" =~ ^[Bb]earer[[:space:]]+.+$ ]]; then
           AUTH_HEADER_VALUE="${GW_KEY}"

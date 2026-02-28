@@ -238,6 +238,8 @@ jobs:
           gateway_key: ${{ secrets.AIGATEWAY_KEY }}
           embedding_model: ${{ env.TF_VAR_embedding_deployment }}
           codex_model: ${{ env.TF_VAR_codex_model }}
+          aoai_endpoint: ${{ env.TF_VAR_azure_openai_endpoint }}
+          aoai_api_key: ${{ env.TF_VAR_azure_openai_api_key }}
           max_attempts: "5"
           retry_sleep: "10"
 
@@ -344,6 +346,8 @@ jobs:
           gateway_key: ${{ secrets.AIGATEWAY_KEY }}
           embedding_model: ${{ env.TF_VAR_embedding_deployment }}
           codex_model: ${{ env.TF_VAR_codex_model }}
+          aoai_endpoint: ${{ env.TF_VAR_azure_openai_endpoint }}
+          aoai_api_key: ${{ env.TF_VAR_azure_openai_api_key }}
           max_attempts: "5"
           retry_sleep: "10"
 
@@ -450,5 +454,7 @@ jobs:
           gateway_key: ${{ secrets.AIGATEWAY_KEY }}
           embedding_model: ${{ env.TF_VAR_embedding_deployment }}
           codex_model: ${{ env.TF_VAR_codex_model }}
+          aoai_endpoint: ${{ env.TF_VAR_azure_openai_endpoint }}
+          aoai_api_key: ${{ env.TF_VAR_azure_openai_api_key }}
           max_attempts: "5"
           retry_sleep: "15"  # prod: longer cold-start; allow more time between retries
