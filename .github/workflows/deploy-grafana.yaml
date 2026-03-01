@@ -151,6 +151,27 @@ jobs:
             echo "> \`workflow_dispatch\` to import the LiteLLM dashboards."
           } >> "${GITHUB_STEP_SUMMARY}"
 
+  check-grafana-secrets:
+    name: Check Grafana dashboard secrets
+    runs-on: ubuntu-latest
+    needs: deploy-grafana
+    outputs:
+      has-secrets: ${{ steps.check.outputs.has-secrets }}
+    env:
+      GRAFANA_URL: ${{ secrets.GRAFANA_URL }}
+      GRAFANA_SA_TOKEN: ${{ secrets.GRAFANA_SA_TOKEN }}
+    steps:
+      - id: check
+        shell: bash
+        run: |
+          if [ -n "${GRAFANA_URL}" ] && [ -n "${GRAFANA_SA_TOKEN}" ]; then
+            echo "has-secrets=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "has-secrets=false" >> "${GITHUB_OUTPUT}"
+            echo "::notice::GRAFANA_URL or GRAFANA_SA_TOKEN not set — skipping dashboard import."
+            echo "Set these secrets then re-trigger this workflow or run deploy-grafana-dashboards.yaml via workflow_dispatch."
+          fi
+
   deploy-dashboards:
     name: Import LiteLLM dashboards
     # Runs after Terraform apply; requires GRAFANA_URL and GRAFANA_SA_TOKEN to be
@@ -158,7 +179,7 @@ jobs:
     # set — run `terraform -chdir=infra/grafana output -raw github_actions_token`
     # locally, set the GRAFANA_URL and GRAFANA_SA_TOKEN secrets, then re-run this
     # workflow or trigger deploy-grafana-dashboards.yaml directly via workflow_dispatch.
-    needs: deploy-grafana
-    if: ${{ secrets.GRAFANA_URL != '' && secrets.GRAFANA_SA_TOKEN != '' }}
+    needs: [deploy-grafana, check-grafana-secrets]
+    if: needs.check-grafana-secrets.outputs.has-secrets == 'true'
     uses: ./.github/workflows/deploy-grafana-dashboards.yaml
     secrets: inherit
