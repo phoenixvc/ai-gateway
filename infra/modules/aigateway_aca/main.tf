@@ -53,6 +53,14 @@ locals {
       model_info:
         mode: embedding
 
+  # Structured logging: JSON lines to stdout, streamed by Container Apps into
+  # the Log Analytics Workspace. Query with:
+  #   ContainerAppConsoleLogs_CL
+  #   | where ContainerName_s == "litellm"
+  #   | project TimeGenerated, Log_s
+  litellm_settings:
+    json_logs: true
+
   # Simple auth guard: require x-gateway-key (we implement via LiteLLM master key)
   # Many OpenAI-compatible tools send Authorization; Roo can send custom headers.
   # If you prefer Authorization bearer, swap enforcement accordingly.
