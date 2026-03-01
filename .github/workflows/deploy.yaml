@@ -289,6 +289,18 @@ jobs:
           az containerapp show -g "${RG_NAME}" -n "${CA_NAME}" --query "properties.template.containers[0].env[?name=='LITELLM_CONFIG_CONTENT'].value | [0]" -o tsv | head -c 2000 || true
           echo
 
+      - name: Integration test (Azure OpenAI backend)
+        shell: bash
+        env:
+          AZURE_OPENAI_ENDPOINT: ${{ env.TF_VAR_azure_openai_endpoint }}
+          AZURE_OPENAI_API_KEY: ${{ env.TF_VAR_azure_openai_api_key }}
+          AZURE_OPENAI_EMBEDDING_DEPLOYMENT: ${{ env.TF_VAR_embedding_deployment }}
+          AZURE_OPENAI_API_VERSION: ${{ env.TF_VAR_embeddings_api_version }}
+          AZURE_OPENAI_CODEX_MODEL: ${{ env.TF_VAR_codex_model }}
+          AZURE_OPENAI_CODEX_API_VERSION: ${{ env.TF_VAR_codex_api_version }}
+        working-directory: ${{ github.workspace }}
+        run: python3 scripts/integration_test.py
+
       - name: Smoke test gateway (embeddings + responses)
         uses: ./.github/actions/smoke-test-gateway
         with:
@@ -453,6 +465,18 @@ jobs:
           echo "LITELLM_CONFIG_CONTENT excerpt (first 2000 chars):"
           az containerapp show -g "${RG_NAME}" -n "${CA_NAME}" --query "properties.template.containers[0].env[?name=='LITELLM_CONFIG_CONTENT'].value | [0]" -o tsv | head -c 2000 || true
           echo
+
+      - name: Integration test (Azure OpenAI backend)
+        shell: bash
+        env:
+          AZURE_OPENAI_ENDPOINT: ${{ env.TF_VAR_azure_openai_endpoint }}
+          AZURE_OPENAI_API_KEY: ${{ env.TF_VAR_azure_openai_api_key }}
+          AZURE_OPENAI_EMBEDDING_DEPLOYMENT: ${{ env.TF_VAR_embedding_deployment }}
+          AZURE_OPENAI_API_VERSION: ${{ env.TF_VAR_embeddings_api_version }}
+          AZURE_OPENAI_CODEX_MODEL: ${{ env.TF_VAR_codex_model }}
+          AZURE_OPENAI_CODEX_API_VERSION: ${{ env.TF_VAR_codex_api_version }}
+        working-directory: ${{ github.workspace }}
+        run: python3 scripts/integration_test.py
 
       - name: Smoke test gateway (embeddings + responses)
         uses: ./.github/actions/smoke-test-gateway
@@ -622,6 +646,18 @@ jobs:
           echo "LITELLM_CONFIG_CONTENT excerpt (first 2000 chars):"
           az containerapp show -g "${RG_NAME}" -n "${CA_NAME}" --query "properties.template.containers[0].env[?name=='LITELLM_CONFIG_CONTENT'].value | [0]" -o tsv | head -c 2000 || true
           echo
+
+      - name: Integration test (Azure OpenAI backend)
+        shell: bash
+        env:
+          AZURE_OPENAI_ENDPOINT: ${{ env.TF_VAR_azure_openai_endpoint }}
+          AZURE_OPENAI_API_KEY: ${{ env.TF_VAR_azure_openai_api_key }}
+          AZURE_OPENAI_EMBEDDING_DEPLOYMENT: ${{ env.TF_VAR_embedding_deployment }}
+          AZURE_OPENAI_API_VERSION: ${{ env.TF_VAR_embeddings_api_version }}
+          AZURE_OPENAI_CODEX_MODEL: ${{ env.TF_VAR_codex_model }}
+          AZURE_OPENAI_CODEX_API_VERSION: ${{ env.TF_VAR_codex_api_version }}
+        working-directory: ${{ github.workspace }}
+        run: python3 scripts/integration_test.py
 
       - name: Smoke test gateway (embeddings + responses)
         uses: ./.github/actions/smoke-test-gateway
