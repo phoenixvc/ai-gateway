@@ -314,6 +314,7 @@ runs:
         if fetch_models; then
           resolve_effective_models
           require_models_or_wait
+          resolve_effective_models
         else
           echo "Unable to fetch /v1/models after retries; using requested models as-is."
           EMB_EFFECTIVE="${EMB_MODEL}"
