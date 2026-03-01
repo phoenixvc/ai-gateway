@@ -8,7 +8,7 @@ location_short = "san"
 # GitHub Environment secret AZURE_OPENAI_ENDPOINT) takes precedence over this
 # value during CI/CD runs. For local development, either set that env var or
 # update this file with the correct UAT endpoint.
-azure_openai_endpoint = "https://mys-shared-ai-swc.cognitiveservices.azure.com"
+azure_openai_endpoint = "https://mys-shared-ai-san.cognitiveservices.azure.com"
 
 codex_model       = "gpt-5.3-codex"
 codex_api_version = "2025-04-01-preview"
