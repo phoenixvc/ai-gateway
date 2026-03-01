@@ -50,6 +50,8 @@ locals {
         api_base: ${var.azure_openai_endpoint}
         api_key: os.environ/LITELLM_AZURE_OPENAI_API_KEY
         api_version: ${var.embeddings_api_version}
+      model_info:
+        mode: embedding
 
   # Simple auth guard: require x-gateway-key (we implement via LiteLLM master key)
   # Many OpenAI-compatible tools send Authorization; Roo can send custom headers.
