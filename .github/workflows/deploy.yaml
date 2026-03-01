@@ -125,42 +125,6 @@ jobs:
             -backend-config="container_name=${TF_BACKEND_CONTAINER}" \
             -backend-config="key=${{ matrix.environment }}.terraform.tfstate"
 
-      - name: Import existing Azure resources into Terraform state
-        shell: bash
-        run: |
-          set -euo pipefail
-          PROJNAME="${TF_VAR_projname}"
-          ENV="${TF_VAR_env}"
-          LOC="${TF_VAR_location_short}"
-          CA_NAME="pvc-${ENV}-${PROJNAME}-ca-${LOC}"
-          RG_NAME="pvc-${ENV}-${PROJNAME}-rg-${LOC}"
-          CA_ID="/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${RG_NAME}/providers/Microsoft.App/containerApps/${CA_NAME}"
-          if az containerapp show --ids "${CA_ID}" &>/dev/null; then
-            if ! PROV_STATE=$(az containerapp show --ids "${CA_ID}" --query "properties.provisioningState" -o tsv 2>/dev/null); then
-              echo "::warning::Could not determine provisioningState for ${CA_NAME}. Skipping import/delete."
-            else
-              echo "Container app ${CA_NAME} exists with provisioningState: ${PROV_STATE}"
-              if [ "${PROV_STATE}" = "Failed" ]; then
-                echo "Container app ${CA_NAME} is in Failed state. Deleting so Terraform can recreate it cleanly..."
-                if ! az containerapp delete --ids "${CA_ID}" --yes; then
-                  echo "::error::Failed to delete Container App ${CA_NAME}. Manual cleanup may be required."
-                  exit 1
-                fi
-                if terraform state list | grep -qxF "module.aigateway.azurerm_container_app.ca"; then
-                  echo "Removing stale state entry for ${CA_NAME}..."
-                  terraform state rm module.aigateway.azurerm_container_app.ca
-                fi
-              elif terraform state list | grep -qxF "module.aigateway.azurerm_container_app.ca"; then
-                echo "Container app ${CA_NAME} already in Terraform state, skipping import."
-              else
-                echo "Importing ${CA_NAME} into Terraform state..."
-                terraform import module.aigateway.azurerm_container_app.ca "${CA_ID}"
-              fi
-            fi
-          else
-            echo "Container app ${CA_NAME} not found in Azure, no import needed."
-          fi
-
       - name: Terraform Plan
         run: |
           terraform plan -out=tfplan
@@ -255,11 +219,45 @@ jobs:
             -backend-config="container_name=${TF_BACKEND_CONTAINER}" \
             -backend-config="key=dev.terraform.tfstate"
 
-      - name: Download Plan
-        uses: actions/download-artifact@v4
-        with:
-          name: tfplan-dev
-          path: infra/env/dev
+      - name: Import existing Container App into Terraform state
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROJNAME="${TF_VAR_projname}"
+          ENV="${TF_VAR_env}"
+          LOC="${TF_VAR_location_short}"
+          CA_NAME="pvc-${ENV}-${PROJNAME}-ca-${LOC}"
+          RG_NAME="pvc-${ENV}-${PROJNAME}-rg-${LOC}"
+          CA_ID="/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${RG_NAME}/providers/Microsoft.App/containerApps/${CA_NAME}"
+          if az containerapp show --ids "${CA_ID}" &>/dev/null; then
+            if ! PROV_STATE=$(az containerapp show --ids "${CA_ID}" --query "properties.provisioningState" -o tsv 2>/dev/null); then
+              echo "::warning::Could not determine provisioningState for ${CA_NAME}. Skipping import/delete."
+            else
+              echo "Container app ${CA_NAME} exists with provisioningState: ${PROV_STATE}"
+              if [ "${PROV_STATE}" = "Failed" ]; then
+                echo "Container app ${CA_NAME} is in Failed state. Deleting so Terraform can recreate it cleanly..."
+                if ! az containerapp delete --ids "${CA_ID}" --yes; then
+                  echo "::error::Failed to delete Container App ${CA_NAME}. Manual cleanup may be required."
+                  exit 1
+                fi
+                if terraform state list | grep -qxF "module.aigateway.azurerm_container_app.ca"; then
+                  echo "Removing stale state entry for ${CA_NAME}..."
+                  terraform state rm module.aigateway.azurerm_container_app.ca
+                fi
+              elif terraform state list | grep -qxF "module.aigateway.azurerm_container_app.ca"; then
+                echo "Container app ${CA_NAME} already in Terraform state, skipping import."
+              else
+                echo "Importing ${CA_NAME} into Terraform state..."
+                terraform import module.aigateway.azurerm_container_app.ca "${CA_ID}"
+              fi
+            fi
+          else
+            echo "Container app ${CA_NAME} not found in Azure, no import needed."
+          fi
+
+      - name: Terraform Plan
+        run: |
+          terraform plan -out=tfplan
 
       - name: Terraform Apply
         run: |
@@ -385,11 +383,45 @@ jobs:
             -backend-config="container_name=${TF_BACKEND_CONTAINER}" \
             -backend-config="key=uat.terraform.tfstate"
 
-      - name: Download Plan
-        uses: actions/download-artifact@v4
-        with:
-          name: tfplan-uat
-          path: infra/env/uat
+      - name: Import existing Container App into Terraform state
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROJNAME="${TF_VAR_projname}"
+          ENV="${TF_VAR_env}"
+          LOC="${TF_VAR_location_short}"
+          CA_NAME="pvc-${ENV}-${PROJNAME}-ca-${LOC}"
+          RG_NAME="pvc-${ENV}-${PROJNAME}-rg-${LOC}"
+          CA_ID="/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${RG_NAME}/providers/Microsoft.App/containerApps/${CA_NAME}"
+          if az containerapp show --ids "${CA_ID}" &>/dev/null; then
+            if ! PROV_STATE=$(az containerapp show --ids "${CA_ID}" --query "properties.provisioningState" -o tsv 2>/dev/null); then
+              echo "::warning::Could not determine provisioningState for ${CA_NAME}. Skipping import/delete."
+            else
+              echo "Container app ${CA_NAME} exists with provisioningState: ${PROV_STATE}"
+              if [ "${PROV_STATE}" = "Failed" ]; then
+                echo "Container app ${CA_NAME} is in Failed state. Deleting so Terraform can recreate it cleanly..."
+                if ! az containerapp delete --ids "${CA_ID}" --yes; then
+                  echo "::error::Failed to delete Container App ${CA_NAME}. Manual cleanup may be required."
+                  exit 1
+                fi
+                if terraform state list | grep -qxF "module.aigateway.azurerm_container_app.ca"; then
+                  echo "Removing stale state entry for ${CA_NAME}..."
+                  terraform state rm module.aigateway.azurerm_container_app.ca
+                fi
+              elif terraform state list | grep -qxF "module.aigateway.azurerm_container_app.ca"; then
+                echo "Container app ${CA_NAME} already in Terraform state, skipping import."
+              else
+                echo "Importing ${CA_NAME} into Terraform state..."
+                terraform import module.aigateway.azurerm_container_app.ca "${CA_ID}"
+              fi
+            fi
+          else
+            echo "Container app ${CA_NAME} not found in Azure, no import needed."
+          fi
+
+      - name: Terraform Plan
+        run: |
+          terraform plan -out=tfplan
 
       - name: Terraform Apply
         run: |
@@ -519,11 +551,45 @@ jobs:
             -backend-config="container_name=${TF_BACKEND_CONTAINER}" \
             -backend-config="key=prod.terraform.tfstate"
 
-      - name: Download Plan
-        uses: actions/download-artifact@v4
-        with:
-          name: tfplan-prod
-          path: infra/env/prod
+      - name: Import existing Container App into Terraform state
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROJNAME="${TF_VAR_projname}"
+          ENV="${TF_VAR_env}"
+          LOC="${TF_VAR_location_short}"
+          CA_NAME="pvc-${ENV}-${PROJNAME}-ca-${LOC}"
+          RG_NAME="pvc-${ENV}-${PROJNAME}-rg-${LOC}"
+          CA_ID="/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${RG_NAME}/providers/Microsoft.App/containerApps/${CA_NAME}"
+          if az containerapp show --ids "${CA_ID}" &>/dev/null; then
+            if ! PROV_STATE=$(az containerapp show --ids "${CA_ID}" --query "properties.provisioningState" -o tsv 2>/dev/null); then
+              echo "::warning::Could not determine provisioningState for ${CA_NAME}. Skipping import/delete."
+            else
+              echo "Container app ${CA_NAME} exists with provisioningState: ${PROV_STATE}"
+              if [ "${PROV_STATE}" = "Failed" ]; then
+                echo "Container app ${CA_NAME} is in Failed state. Deleting so Terraform can recreate it cleanly..."
+                if ! az containerapp delete --ids "${CA_ID}" --yes; then
+                  echo "::error::Failed to delete Container App ${CA_NAME}. Manual cleanup may be required."
+                  exit 1
+                fi
+                if terraform state list | grep -qxF "module.aigateway.azurerm_container_app.ca"; then
+                  echo "Removing stale state entry for ${CA_NAME}..."
+                  terraform state rm module.aigateway.azurerm_container_app.ca
+                fi
+              elif terraform state list | grep -qxF "module.aigateway.azurerm_container_app.ca"; then
+                echo "Container app ${CA_NAME} already in Terraform state, skipping import."
+              else
+                echo "Importing ${CA_NAME} into Terraform state..."
+                terraform import module.aigateway.azurerm_container_app.ca "${CA_ID}"
+              fi
+            fi
+          else
+            echo "Container app ${CA_NAME} not found in Azure, no import needed."
+          fi
+
+      - name: Terraform Plan
+        run: |
+          terraform plan -out=tfplan
 
       - name: Terraform Apply
         run: |

@@ -102,6 +102,22 @@ runs:
           return 1
         }
 
+        fetch_models_once() {
+          local models_code=0
+          curl -sS -o /tmp/models.json -w "%{http_code}" \
+            -X GET "${GW}/v1/models" \
+            -H "Authorization: ${AUTH_HEADER_VALUE}" \
+            > /tmp/models.code 2>/dev/null || true
+          models_code=$(cat /tmp/models.code 2>/dev/null || echo "")
+          [ -z "$models_code" ] || [[ ! "$models_code" =~ ^[0-9]+$ ]] && models_code=0
+          if [ "$models_code" -ge 200 ] && [ "$models_code" -lt 300 ]; then
+            MODELS_CODE="$models_code"
+            return 0
+          fi
+          MODELS_CODE="$models_code"
+          return 1
+        }
+
         fetch_aoai_deployments() {
           if [ -z "${AOAI_ENDPOINT:-}" ] || [ -z "${AOAI_KEY:-}" ]; then
             echo "AOAI endpoint/key not provided; skipping direct deployment discovery."
@@ -272,15 +288,30 @@ runs:
           if ! command -v jq >/dev/null 2>&1; then
             return 0  # jq unavailable; proceed without model-list check
           fi
-          if [ -s /tmp/models.ids ]; then
-            return 0
-          fi
 
           local wait_attempts="${SMOKE_MODELS_WAIT_ATTEMPTS:-3}"
           local wait_sleep="${SMOKE_MODELS_WAIT_SLEEP:-30}"
 
+          if ! [[ "${wait_attempts}" =~ ^[0-9]+$ ]] || [ "${wait_attempts}" -le 0 ]; then
+            echo "::error::Invalid SMOKE_MODELS_WAIT_ATTEMPTS value '${wait_attempts}'. Expected a positive integer." >&2
+            exit 1
+          fi
+          if ! [[ "${wait_sleep}" =~ ^[0-9]+$ ]] || [ "${wait_sleep}" -le 0 ]; then
+            echo "::error::Invalid SMOKE_MODELS_WAIT_SLEEP value '${wait_sleep}'. Expected a positive integer number of seconds." >&2
+            exit 1
+          fi
+
+          # Return early only when models list is non-empty AND contains the embedding model
+          if [ -s /tmp/models.ids ] && grep -Fxq "${EMB_EFFECTIVE:-}" /tmp/models.ids 2>/dev/null; then
+            return 0
+          fi
+
           for attempt in $(seq 1 "${wait_attempts}"); do
-            echo "LiteLLM /v1/models is empty; querying /health for diagnostics (wait ${attempt}/${wait_attempts})..."
+            if [ ! -s /tmp/models.ids ]; then
+              echo "LiteLLM /v1/models is empty; querying /health for diagnostics (wait ${attempt}/${wait_attempts})..."
+            else
+              echo "LiteLLM /v1/models does not include embedding model '${EMB_EFFECTIVE}'; querying /health for diagnostics (wait ${attempt}/${wait_attempts})..."
+            fi
             curl -sS -o /tmp/litellm_health.json -w "%{http_code}" \
               -X GET "${GW}/health" \
               -H "Authorization: ${AUTH_HEADER_VALUE}" \
@@ -295,16 +326,23 @@ runs:
             fi
             echo "  Waiting ${wait_sleep}s before re-checking /v1/models..."
             sleep "${wait_sleep}"
-            fetch_models || true
+            fetch_models_once || true
             jq -r '.data[]?.id // empty' /tmp/models.json 2>/dev/null | sed '/^$/d' > /tmp/models.ids || true
             if [ -s /tmp/models.ids ]; then
               echo "LiteLLM models now available after wait:"
               head -n 30 /tmp/models.ids | sed 's/^/- /'
-              return 0
+              if grep -Fxq "${EMB_EFFECTIVE:-}" /tmp/models.ids 2>/dev/null; then
+                return 0
+              fi
+              echo "  Embedding model '${EMB_EFFECTIVE}' still not in model list after wait ${attempt}/${wait_attempts}."
             fi
           done
 
-          echo "::error::LiteLLM /v1/models is still empty after ${wait_attempts} wait attempts. No healthy deployments available." >&2
+          if [ ! -s /tmp/models.ids ]; then
+            echo "::error::LiteLLM /v1/models is still empty after ${wait_attempts} wait attempts. No healthy deployments available." >&2
+          else
+            echo "::error::Embedding model '${EMB_EFFECTIVE}' not found in /v1/models after ${wait_attempts} wait attempts. Check LiteLLM configuration for this deployment." >&2
+          fi
           dump_models_diagnostics
           exit 1
         }
