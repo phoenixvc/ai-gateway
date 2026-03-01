@@ -90,7 +90,9 @@ runs:
               -H "Authorization: ${AUTH_HEADER_VALUE}" \
               > /tmp/models.code 2>/dev/null || true
             models_code=$(cat /tmp/models.code 2>/dev/null || echo "")
-            [ -z "$models_code" ] || [[ ! "$models_code" =~ ^[0-9]+$ ]] && models_code=0
+            if [ -z "$models_code" ] || [[ ! "$models_code" =~ ^[0-9]+$ ]]; then
+              models_code=0
+            fi
             if [ "$models_code" -ge 200 ] && [ "$models_code" -lt 300 ]; then
               MODELS_CODE="$models_code"
               return 0
@@ -109,7 +111,9 @@ runs:
             -H "Authorization: ${AUTH_HEADER_VALUE}" \
             > /tmp/models.code 2>/dev/null || true
           models_code=$(cat /tmp/models.code 2>/dev/null || echo "")
-          [ -z "$models_code" ] || [[ ! "$models_code" =~ ^[0-9]+$ ]] && models_code=0
+          if [ -z "$models_code" ] || [[ ! "$models_code" =~ ^[0-9]+$ ]]; then
+            models_code=0
+          fi
           if [ "$models_code" -ge 200 ] && [ "$models_code" -lt 300 ]; then
             MODELS_CODE="$models_code"
             return 0

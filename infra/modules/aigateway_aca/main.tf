@@ -48,7 +48,7 @@ locals {
         model: azure/${var.codex_model}
         api_base: ${var.azure_openai_endpoint}
         api_key: os.environ/LITELLM_AZURE_OPENAI_API_KEY
-        api_version: ${var.codex_api_version}
+        api_version: "${var.codex_api_version}"
         # responses api
         # LiteLLM maps OpenAI-compatible surface to Azure responses when available
 
@@ -57,7 +57,7 @@ locals {
         model: azure/${var.embedding_deployment}
         api_base: ${var.azure_openai_endpoint}
         api_key: os.environ/LITELLM_AZURE_OPENAI_API_KEY
-        api_version: ${var.embeddings_api_version}
+        api_version: "${var.embeddings_api_version}"
       model_info:
         mode: embedding
 
