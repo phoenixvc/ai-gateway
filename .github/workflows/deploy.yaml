@@ -248,6 +248,7 @@ jobs:
                 echo "Container app ${CA_NAME} already in Terraform state, skipping import."
               else
                 echo "Importing ${CA_NAME} into Terraform state..."
+                terraform state rm module.aigateway.azurerm_container_app.ca 2>/dev/null || true
                 terraform import module.aigateway.azurerm_container_app.ca "${CA_ID}"
               fi
             fi
@@ -412,6 +413,7 @@ jobs:
                 echo "Container app ${CA_NAME} already in Terraform state, skipping import."
               else
                 echo "Importing ${CA_NAME} into Terraform state..."
+                terraform state rm module.aigateway.azurerm_container_app.ca 2>/dev/null || true
                 terraform import module.aigateway.azurerm_container_app.ca "${CA_ID}"
               fi
             fi
@@ -580,6 +582,7 @@ jobs:
                 echo "Container app ${CA_NAME} already in Terraform state, skipping import."
               else
                 echo "Importing ${CA_NAME} into Terraform state..."
+                terraform state rm module.aigateway.azurerm_container_app.ca 2>/dev/null || true
                 terraform import module.aigateway.azurerm_container_app.ca "${CA_ID}"
               fi
             fi
