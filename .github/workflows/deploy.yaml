@@ -411,7 +411,6 @@ jobs:
       TF_VAR_projname: "aigateway"
       TF_VAR_location: "southafricanorth"
       TF_VAR_location_short: "san"
-      EXPECTED_AOAI_ENDPOINT_HOST: "mys-prod-ai-san.cognitiveservices.azure.com"
       TF_VAR_azure_openai_endpoint: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
       TF_VAR_azure_openai_api_key: ${{ secrets.AZURE_OPENAI_API_KEY }}
       TF_VAR_gateway_key: ${{ secrets.AIGATEWAY_KEY }}
