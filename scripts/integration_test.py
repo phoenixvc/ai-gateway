@@ -26,6 +26,7 @@ Usage:
   export AIGATEWAY_KEY=...
   python3 scripts/integration_test.py
 """
+import hashlib
 import json
 import os
 import sys
@@ -204,12 +205,12 @@ def main() -> int:
     print("AI Gateway Integration Test")
     print("=" * 60)
     print(f"Azure OpenAI endpoint:      {endpoint}")
-    key_fp = __import__("hashlib").sha256(api_key.encode()).hexdigest()[:12]
-    print(f"Azure OpenAI API key:       sha256:{key_fp} (len={len(api_key)})")
+    key_fp = hashlib.sha256(api_key.encode()).hexdigest()[:12]
+    print(f"Azure OpenAI API key:       sha256:{key_fp}")
     if emb_endpoint != endpoint:
         print(f"Embedding endpoint:         {emb_endpoint}")
-        emb_key_fp = __import__("hashlib").sha256(emb_api_key.encode()).hexdigest()[:12]
-        print(f"Embedding API key:          sha256:{emb_key_fp} (len={len(emb_api_key)})")
+        emb_key_fp = hashlib.sha256(emb_api_key.encode()).hexdigest()[:12]
+        print(f"Embedding API key:          sha256:{emb_key_fp}")
     else:
         print(f"Embedding endpoint:         (same as main)")
     print(f"Embedding deployment:       {embedding_deployment}")
