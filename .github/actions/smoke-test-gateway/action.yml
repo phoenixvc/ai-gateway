@@ -103,7 +103,8 @@ runs:
           fi
 
           local deploy_url="${AOAI_ENDPOINT%/}/openai/deployments?api-version=2023-05-15"
-          curl -sS -o /tmp/aoai_deployments.json -w "%{http_code}" \
+          curl -sS --connect-timeout 10 --max-time 30 \
+            -o /tmp/aoai_deployments.json -w "%{http_code}" \
             -X GET "${deploy_url}" \
             -H "api-key: ${AOAI_KEY}" \
             > /tmp/aoai_deployments.code 2>/dev/null || true
