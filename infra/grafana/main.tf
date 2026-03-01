@@ -16,7 +16,10 @@ terraform {
 # Configure the Grafana provider with a Cloud access policy token.
 # Generate this token at https://grafana.com/profile/api-keys with at least
 # the following scopes: stacks:read, stacks:write,
-# stack-service-accounts:read, stack-service-accounts:write.
+# stack-service-accounts:write.
+# Note: stack-service-accounts:read does not exist as a grantable scope in
+# the Grafana Cloud policy UI. stack-service-accounts:write is sufficient
+# for the provider to create, update, and delete service accounts idempotently.
 provider "grafana" {
   cloud_access_policy_token = var.grafana_cloud_access_policy_token
 }

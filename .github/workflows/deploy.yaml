@@ -63,7 +63,7 @@ jobs:
       TF_VAR_codex_model: ${{ matrix.environment == 'prod' && 'gpt-4o' || 'gpt-5.3-codex' }}
       TF_VAR_codex_api_version: ${{ matrix.environment == 'prod' && '2025-01-01-preview' || '2025-04-01-preview' }}
       TF_VAR_embedding_deployment: "text-embedding-3-large"
-      TF_VAR_embeddings_api_version: ${{ matrix.environment == 'prod' && '2024-02-01' || '2023-05-15' }}
+      TF_VAR_embeddings_api_version: "2024-02-01"
 
     steps:
       - name: Checkout code
@@ -157,7 +157,7 @@ jobs:
       TF_VAR_codex_model: "gpt-5.3-codex"
       TF_VAR_codex_api_version: "2025-04-01-preview"
       TF_VAR_embedding_deployment: "text-embedding-3-large"
-      TF_VAR_embeddings_api_version: "2023-05-15"
+      TF_VAR_embeddings_api_version: "2024-02-01"
 
     steps:
       - name: Checkout code
@@ -322,7 +322,7 @@ jobs:
       TF_VAR_codex_model: "gpt-5.3-codex"
       TF_VAR_codex_api_version: "2025-04-01-preview"
       TF_VAR_embedding_deployment: "text-embedding-3-large"
-      TF_VAR_embeddings_api_version: "2023-05-15"
+      TF_VAR_embeddings_api_version: "2024-02-01"
 
     steps:
       - name: Checkout code

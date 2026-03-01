@@ -94,7 +94,7 @@ variable "embedding_deployment" {
 variable "embeddings_api_version" {
   type        = string
   description = "Embeddings API version"
-  default     = "2023-05-15"
+  default     = "2024-02-01"
 }
 
 # Optional scaling
