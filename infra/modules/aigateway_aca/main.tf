@@ -38,7 +38,7 @@ locals {
   # Features enabled here:
   #   - JSON structured logging → Log Analytics Workspace via Container Apps stdout
   #   - Prometheus /metrics endpoint (built-in, no extra infra)
-  #   - Langfuse tracing (when langfuse_public_key is provided)
+  #   - Langfuse tracing (when both langfuse_public_key and langfuse_secret_key are provided)
   #   - Redis semantic caching (when enable_redis_cache = true)
   #   - Global budget / rate limits (when set above 0)
   litellm_config = <<-YAML
@@ -73,12 +73,12 @@ locals {
       - prometheus
   %{if var.langfuse_public_key != "" && var.langfuse_secret_key != ""~}
       - langfuse
-  %{endif~}
+  %{endif}
     failure_callback:
       - prometheus
   %{if var.langfuse_public_key != "" && var.langfuse_secret_key != ""~}
       - langfuse
-  %{endif~}
+  %{endif}
   %{if var.enable_redis_cache~}
     # Redis: deduplicate identical requests to reduce Azure OpenAI token spend
     cache: true
