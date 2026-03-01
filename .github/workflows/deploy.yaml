@@ -129,7 +129,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          PROJNAME="aigateway"
+          PROJNAME="${TF_VAR_projname}"
           ENV="${TF_VAR_env}"
           LOC="${TF_VAR_location_short}"
           CA_NAME="pvc-${ENV}-${PROJNAME}-ca-${LOC}"
@@ -146,11 +146,11 @@ jobs:
                   echo "::error::Failed to delete Container App ${CA_NAME}. Manual cleanup may be required."
                   exit 1
                 fi
-                if terraform state list | grep -qF "module.aigateway.azurerm_container_app.ca"; then
+                if terraform state list | grep -qxF "module.aigateway.azurerm_container_app.ca"; then
                   echo "Removing stale state entry for ${CA_NAME}..."
                   terraform state rm module.aigateway.azurerm_container_app.ca
                 fi
-              elif terraform state list | grep -qF "module.aigateway.azurerm_container_app.ca"; then
+              elif terraform state list | grep -qxF "module.aigateway.azurerm_container_app.ca"; then
                 echo "Container app ${CA_NAME} already in Terraform state, skipping import."
               else
                 echo "Importing ${CA_NAME} into Terraform state..."
