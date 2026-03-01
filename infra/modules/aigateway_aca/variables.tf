@@ -152,8 +152,12 @@ variable "enable_redis_cache" {
 
 variable "redis_cache_capacity" {
   type        = number
-  description = "Azure Cache for Redis capacity (SKU unit). 0 = C0 (250 MB, dev/test); 1 = C1 (1 GB); 2 = C2 (6 GB). Increase for production workloads with high request volumes."
+  description = "Azure Cache for Redis capacity (SKU unit). 0 = C0 (250 MB, dev/test); 1 = C1 (1 GB); 2 = C2 (6 GB). Increase for production workloads with higher request volumes."
   default     = 0
+  validation {
+    condition     = contains([0, 1, 2], var.redis_cache_capacity)
+    error_message = "redis_cache_capacity must be one of: 0 (C0), 1 (C1), or 2 (C2) for this module."
+  }
 }
 
 # Budget and rate limiting (0 / empty = disabled)
