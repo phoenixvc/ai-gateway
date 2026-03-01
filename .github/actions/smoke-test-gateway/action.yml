@@ -117,7 +117,7 @@ runs:
           fi
 
           jq -r '.data[]? | (.id // .name // empty)' /tmp/aoai_deployments.json | sed '/^$/d' > /tmp/aoai.deployments.ids || true
-          jq -r '.data[]? | select((((.model // .modelName // .id // .name // "") | tostring) | test("embed|embedding"; "i")) | (.id // .name // empty)' /tmp/aoai_deployments.json | sed '/^$/d' > /tmp/aoai.deployments.embeddings || true
+          jq -r '.data[]? | select((((.model // .modelName // .id // .name // "") | tostring) | test("embed|embedding"; "i"))) | (.id // .name // empty)' /tmp/aoai_deployments.json | sed '/^$/d' > /tmp/aoai.deployments.embeddings || true
 
           if [ -s /tmp/aoai.deployments.ids ]; then
             echo "Deployments returned by Azure OpenAI endpoint (first 30):"
