@@ -5,7 +5,7 @@ location_short = "san"
 
 # Your Azure OpenAI endpoint host
 # Placeholder value, will be overridden by environment variable or should be set by user
-azure_openai_endpoint = "https://mys-shared-ai-swc.cognitiveservices.azure.com"
+azure_openai_endpoint = "https://mys-shared-ai-san.cognitiveservices.azure.com"
 
 codex_model       = "gpt-5.3-codex"
 codex_api_version = "2025-04-01-preview"
