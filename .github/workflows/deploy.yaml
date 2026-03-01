@@ -136,11 +136,26 @@ jobs:
           RG_NAME="pvc-${ENV}-${PROJNAME}-rg-${LOC}"
           CA_ID="/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${RG_NAME}/providers/Microsoft.App/containerApps/${CA_NAME}"
           if az containerapp show --ids "${CA_ID}" &>/dev/null; then
-            if terraform state list | grep -qxF "module.aigateway.azurerm_container_app.ca"; then
-              echo "Container app ${CA_NAME} already in Terraform state, skipping import."
+            if ! PROV_STATE=$(az containerapp show --ids "${CA_ID}" --query "properties.provisioningState" -o tsv 2>/dev/null); then
+              echo "::warning::Could not determine provisioningState for ${CA_NAME}. Skipping import/delete."
             else
-              echo "Importing ${CA_NAME} into Terraform state..."
-              terraform import module.aigateway.azurerm_container_app.ca "${CA_ID}"
+              echo "Container app ${CA_NAME} exists with provisioningState: ${PROV_STATE}"
+              if [ "${PROV_STATE}" = "Failed" ]; then
+                echo "Container app ${CA_NAME} is in Failed state. Deleting so Terraform can recreate it cleanly..."
+                if ! az containerapp delete --ids "${CA_ID}" --yes; then
+                  echo "::error::Failed to delete Container App ${CA_NAME}. Manual cleanup may be required."
+                  exit 1
+                fi
+                if terraform state list | grep -qxF "module.aigateway.azurerm_container_app.ca"; then
+                  echo "Removing stale state entry for ${CA_NAME}..."
+                  terraform state rm module.aigateway.azurerm_container_app.ca
+                fi
+              elif terraform state list | grep -qxF "module.aigateway.azurerm_container_app.ca"; then
+                echo "Container app ${CA_NAME} already in Terraform state, skipping import."
+              else
+                echo "Importing ${CA_NAME} into Terraform state..."
+                terraform import module.aigateway.azurerm_container_app.ca "${CA_ID}"
+              fi
             fi
           else
             echo "Container app ${CA_NAME} not found in Azure, no import needed."
