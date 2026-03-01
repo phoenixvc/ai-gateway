@@ -250,8 +250,8 @@ jobs:
           az containerapp show -g "${RG_NAME}" -n "${CA_NAME}" --query "properties.template.containers[0].env[?name=='LITELLM_AZURE_OPENAI_API_KEY' || name=='LITELLM_GATEWAY_KEY']" -o json
           echo "Configured secret sources (names + key vault URLs):"
           az containerapp show -g "${RG_NAME}" -n "${CA_NAME}" --query "properties.configuration.secrets[].{name:name,keyVaultUrl:keyVaultUrl}" -o table
-          echo "LITELLM_CONFIG excerpt (first 2000 chars):"
-          az containerapp show -g "${RG_NAME}" -n "${CA_NAME}" --query "properties.template.containers[0].env[?name=='LITELLM_CONFIG'].value | [0]" -o tsv | head -c 2000 || true
+          echo "LITELLM_CONFIG_CONTENT excerpt (first 2000 chars):"
+          az containerapp show -g "${RG_NAME}" -n "${CA_NAME}" --query "properties.template.containers[0].env[?name=='LITELLM_CONFIG_CONTENT'].value | [0]" -o tsv | head -c 2000 || true
           echo
 
       - name: Smoke test gateway (embeddings + responses)
@@ -380,8 +380,8 @@ jobs:
           az containerapp show -g "${RG_NAME}" -n "${CA_NAME}" --query "properties.template.containers[0].env[?name=='LITELLM_AZURE_OPENAI_API_KEY' || name=='LITELLM_GATEWAY_KEY']" -o json
           echo "Configured secret sources (names + key vault URLs):"
           az containerapp show -g "${RG_NAME}" -n "${CA_NAME}" --query "properties.configuration.secrets[].{name:name,keyVaultUrl:keyVaultUrl}" -o table
-          echo "LITELLM_CONFIG excerpt (first 2000 chars):"
-          az containerapp show -g "${RG_NAME}" -n "${CA_NAME}" --query "properties.template.containers[0].env[?name=='LITELLM_CONFIG'].value | [0]" -o tsv | head -c 2000 || true
+          echo "LITELLM_CONFIG_CONTENT excerpt (first 2000 chars):"
+          az containerapp show -g "${RG_NAME}" -n "${CA_NAME}" --query "properties.template.containers[0].env[?name=='LITELLM_CONFIG_CONTENT'].value | [0]" -o tsv | head -c 2000 || true
           echo
 
       - name: Smoke test gateway (embeddings + responses)
@@ -514,8 +514,8 @@ jobs:
           az containerapp show -g "${RG_NAME}" -n "${CA_NAME}" --query "properties.template.containers[0].env[?name=='LITELLM_AZURE_OPENAI_API_KEY' || name=='LITELLM_GATEWAY_KEY']" -o json
           echo "Configured secret sources (names + key vault URLs):"
           az containerapp show -g "${RG_NAME}" -n "${CA_NAME}" --query "properties.configuration.secrets[].{name:name,keyVaultUrl:keyVaultUrl}" -o table
-          echo "LITELLM_CONFIG excerpt (first 2000 chars):"
-          az containerapp show -g "${RG_NAME}" -n "${CA_NAME}" --query "properties.template.containers[0].env[?name=='LITELLM_CONFIG'].value | [0]" -o tsv | head -c 2000 || true
+          echo "LITELLM_CONFIG_CONTENT excerpt (first 2000 chars):"
+          az containerapp show -g "${RG_NAME}" -n "${CA_NAME}" --query "properties.template.containers[0].env[?name=='LITELLM_CONFIG_CONTENT'].value | [0]" -o tsv | head -c 2000 || true
           echo
 
       - name: Smoke test gateway (embeddings + responses)

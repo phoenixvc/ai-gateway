@@ -38,7 +38,7 @@ locals {
     - model_name: ${var.codex_model}
       litellm_params:
         model: azure/${var.codex_model}
-        api_base: ${var.azure_openai_endpoint}/openai
+        api_base: ${var.azure_openai_endpoint}
         api_key: os.environ/LITELLM_AZURE_OPENAI_API_KEY
         api_version: ${var.codex_api_version}
         # responses api
@@ -197,8 +197,16 @@ resource "azurerm_container_app" "ca" {
       cpu    = 0.5
       memory = "1Gi"
 
+      # Write config content to a temp file and start LiteLLM with --config.
+      # LITELLM_CONFIG env var is not read by LiteLLM; a file path via --config is required.
+      command = [
+        "/bin/sh",
+        "-c",
+        "printf '%s' \"$LITELLM_CONFIG_CONTENT\" > /tmp/proxy_config.yaml || { echo 'ERROR: failed to write LiteLLM config to /tmp/proxy_config.yaml' >&2; exit 1; }; exec litellm --config /tmp/proxy_config.yaml --port ${var.container_port}"
+      ]
+
       env {
-        name  = "LITELLM_CONFIG"
+        name  = "LITELLM_CONFIG_CONTENT"
         value = local.litellm_config
       }
 
