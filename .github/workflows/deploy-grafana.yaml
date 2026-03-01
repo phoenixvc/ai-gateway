@@ -13,8 +13,10 @@ name: Deploy Grafana Cloud Stack
 #   GRAFANA_CLOUD_ACCESS_POLICY_TOKEN
 #                              – Grafana Cloud API token with scopes:
 #                                stacks:read, stacks:write,
-#                                stack-service-accounts:read,
 #                                stack-service-accounts:write
+#                                (stack-service-accounts:read does not exist
+#                                 as a grantable scope in the Grafana Cloud
+#                                 policy UI; write is sufficient)
 #
 # Optional GitHub Actions variables (repository level):
 #   GRAFANA_STACK_NAME         – Display name (default: "PVC AI Gateway")
