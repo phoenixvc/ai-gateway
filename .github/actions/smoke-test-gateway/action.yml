@@ -288,7 +288,14 @@ runs:
             fi
             echo "  Probe for '${candidate}' returned HTTP ${EMB_PROBE_LAST_CODE}."
             if [ "${EMB_PROBE_LAST_CODE}" -eq 401 ]; then
-              echo "  HTTP 401 indicates the backend Azure OpenAI API key may be invalid or the deployment '${candidate}' is not accessible with the configured credentials."
+              echo "  HTTP 401: verify the gateway_key/Authorization header is valid for the gateway. If gateway auth is correct, check the Azure OpenAI API key and that deployment '${candidate}' exists."
+            elif [ "${EMB_PROBE_LAST_CODE}" -eq 404 ]; then
+              echo "  HTTP 404: verify gateway_url is correct and the route exists. If the gateway is reachable, the deployment '${candidate}' may not exist at the Azure OpenAI endpoint."
+            elif [ "${EMB_PROBE_LAST_CODE}" -eq 400 ]; then
+              echo "  HTTP 400: LiteLLM has no healthy backend for '${candidate}'. The Azure deployment may not exist or the API key/endpoint may be misconfigured."
+            fi
+            if [ -s /tmp/emb_probe.json ]; then
+              echo "  Response: $(head -c 300 /tmp/emb_probe.json)"
             fi
           done < /tmp/emb.candidates
 
@@ -352,11 +359,12 @@ runs:
 
           if [ ! -s /tmp/models.ids ]; then
             echo "::error::LiteLLM /v1/models is still empty after ${wait_attempts} wait attempts. No healthy deployments available." >&2
+            dump_models_diagnostics
+            exit 1
           else
-            echo "::error::Embedding model '${EMB_EFFECTIVE}' not found in /v1/models after ${wait_attempts} wait attempts. Check LiteLLM configuration for this deployment." >&2
+            echo "::warning::Embedding model '${EMB_EFFECTIVE}' not found in /v1/models after ${wait_attempts} wait attempts. The Azure OpenAI deployment may not exist or LiteLLM marked it unhealthy. Continuing to probe phase for diagnostics."
+            dump_models_diagnostics
           fi
-          dump_models_diagnostics
-          exit 1
         }
 
         fetch_aoai_deployments
@@ -396,7 +404,11 @@ runs:
         if [ "$EMB_CODE" -lt 200 ] || [ "$EMB_CODE" -ge 300 ]; then
           echo "Embeddings failed after ${SMOKE_MAX_ATTEMPTS} attempts (${EMB_CODE})" >&2
           if [ "$EMB_CODE" -eq 401 ]; then
-            echo "::error::HTTP 401 from embeddings endpoint. Check that the Azure OpenAI API key (TF_VAR_azure_openai_api_key) is valid and the embedding deployment '${EMB_EFFECTIVE}' exists at the configured endpoint. Ensure embeddings_api_version is >= 2024-02-01 for text-embedding-3-large." >&2
+            echo "::error::HTTP 401 from embeddings endpoint. First verify the gateway_key (AIGATEWAY_KEY) and Authorization header are correct. If gateway auth is valid, check that the Azure OpenAI API key (TF_VAR_azure_openai_api_key) is correct and the deployment '${EMB_EFFECTIVE}' exists at the configured endpoint." >&2
+          elif [ "$EMB_CODE" -eq 400 ]; then
+            echo "::error::HTTP 400 from embeddings endpoint. LiteLLM reports no healthy deployments for '${EMB_EFFECTIVE}'. Verify the Azure OpenAI deployment exists, the API key is valid, and embeddings_api_version is >= 2024-02-01 for text-embedding-3-large." >&2
+          elif [ "$EMB_CODE" -eq 404 ]; then
+            echo "::error::HTTP 404 from embeddings endpoint. The deployment '${EMB_EFFECTIVE}' may not exist at the configured Azure OpenAI endpoint." >&2
           fi
           cat /tmp/emb.json >&2 || true
           exit 1
@@ -420,6 +432,13 @@ runs:
         done
         if [ "$RESP_CODE" -lt 200 ] || [ "$RESP_CODE" -ge 300 ]; then
           echo "Responses failed after ${SMOKE_MAX_ATTEMPTS} attempts (${RESP_CODE})" >&2
+          if [ "$RESP_CODE" -eq 401 ]; then
+            echo "::error::HTTP 401 from responses endpoint. First verify the gateway_key (AIGATEWAY_KEY) and Authorization header are correct. If gateway auth is valid, check the Azure OpenAI API key and that deployment '${CODEX_EFFECTIVE}' exists at the configured endpoint." >&2
+          elif [ "$RESP_CODE" -eq 400 ]; then
+            echo "::error::HTTP 400 from responses endpoint. LiteLLM reports no healthy deployments for '${CODEX_EFFECTIVE}'. Verify the Azure OpenAI deployment exists and the API key is valid." >&2
+          elif [ "$RESP_CODE" -eq 404 ]; then
+            echo "::error::HTTP 404 from responses endpoint. The deployment '${CODEX_EFFECTIVE}' may not exist at the configured Azure OpenAI endpoint." >&2
+          fi
           cat /tmp/resp.json >&2 || true
           exit 1
         fi
