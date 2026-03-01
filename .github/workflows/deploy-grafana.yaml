@@ -108,19 +108,39 @@ jobs:
       - name: Terraform Apply
         run: terraform apply -auto-approve tfplan
 
-      - name: Print stack details
+      - name: Print stack details and write job summary
         shell: bash
         run: |
           set -euo pipefail
           STACK_URL=$(terraform output -raw stack_url 2>/dev/null || echo "")
           PROM_URL=$(terraform output -raw prometheus_url 2>/dev/null || echo "")
+          SA_TOKEN=$(terraform output -raw github_actions_token 2>/dev/null || echo "")
+
           echo "Grafana Cloud stack deployed successfully."
-          echo "  Stack URL:        ${STACK_URL}"
-          echo "  Prometheus URL:   ${PROM_URL}"
-          echo ""
-          echo "Set the following GitHub Actions secrets if not already configured:"
-          echo "  GRAFANA_URL      = ${STACK_URL}"
-          echo "  GRAFANA_SA_TOKEN = \$(terraform output -raw github_actions_token)"
+          echo "  Stack URL:      ${STACK_URL}"
+          echo "  Prometheus URL: ${PROM_URL}"
+
+          # Write the bootstrap values to the GitHub Actions job summary so they
+          # can be copied directly from the workflow run UI.
+          {
+            echo "## Grafana Cloud Stack — Bootstrap Secrets"
+            echo ""
+            echo "Set these GitHub Actions secrets to enable dashboard deployments:"
+            echo ""
+            echo "| Secret | Value |"
+            echo "| --- | --- |"
+            echo "| \`GRAFANA_URL\` | \`${STACK_URL}\` |"
+            echo "| \`GRAFANA_SA_TOKEN\` | \`${SA_TOKEN}\` |"
+            echo ""
+            echo "### Additional info"
+            echo "| Output | Value |"
+            echo "| --- | --- |"
+            echo "| Prometheus URL | \`${PROM_URL}\` |"
+            echo ""
+            echo "> **Note:** \`GRAFANA_SA_TOKEN\` is a sensitive value — treat it as a secret."
+            echo "> After setting these secrets, re-trigger **Deploy Grafana Dashboards** via"
+            echo "> \`workflow_dispatch\` to import the LiteLLM dashboards."
+          } >> "${GITHUB_STEP_SUMMARY}"
 
   deploy-dashboards:
     name: Import LiteLLM dashboards
