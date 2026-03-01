@@ -167,6 +167,16 @@ variable "enable_redis_cache" {
   default     = false
 }
 
+variable "redis_cache_sku" {
+  type        = string
+  description = "Azure Cache for Redis SKU. Use 'Standard' for production (replication + SLA) or 'Basic' for dev/test. Defaults to 'Standard' for prod environments."
+  default     = "Basic"
+  validation {
+    condition     = contains(["Basic", "Standard", "Premium"], var.redis_cache_sku)
+    error_message = "redis_cache_sku must be one of: Basic, Standard, Premium."
+  }
+}
+
 variable "redis_cache_capacity" {
   type        = number
   description = "Azure Cache for Redis capacity (SKU unit). 0 = C0 (250 MB, dev/test); 1 = C1 (1 GB); 2 = C2 (6 GB). Increase for production workloads with higher request volumes."

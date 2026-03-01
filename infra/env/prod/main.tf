@@ -50,6 +50,7 @@ module "aigateway" {
   langfuse_host       = var.langfuse_host
 
   enable_redis_cache   = var.enable_redis_cache
+  redis_cache_sku      = var.redis_cache_sku
   redis_cache_capacity = var.redis_cache_capacity
 
   max_budget      = var.max_budget
