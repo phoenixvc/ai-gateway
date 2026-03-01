@@ -57,6 +57,8 @@ jobs:
       # Terraform Variables (Secrets & Config) - sourced from per-environment GitHub secrets
       TF_VAR_azure_openai_endpoint: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
       TF_VAR_azure_openai_api_key: ${{ secrets.AZURE_OPENAI_API_KEY }}
+      TF_VAR_azure_openai_embedding_endpoint: ${{ secrets.AZURE_OPENAI_EMBEDDING_ENDPOINT }}
+      TF_VAR_azure_openai_embedding_api_key: ${{ secrets.AZURE_OPENAI_EMBEDDING_API_KEY }}
       TF_VAR_gateway_key: ${{ secrets.AIGATEWAY_KEY }}
 
       # Model Configuration (environment-specific to match deploy jobs)
@@ -153,6 +155,8 @@ jobs:
       TF_VAR_location_short: "san"
       TF_VAR_azure_openai_endpoint: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
       TF_VAR_azure_openai_api_key: ${{ secrets.AZURE_OPENAI_API_KEY }}
+      TF_VAR_azure_openai_embedding_endpoint: ${{ secrets.AZURE_OPENAI_EMBEDDING_ENDPOINT }}
+      TF_VAR_azure_openai_embedding_api_key: ${{ secrets.AZURE_OPENAI_EMBEDDING_API_KEY }}
       TF_VAR_gateway_key: ${{ secrets.AIGATEWAY_KEY }}
       TF_VAR_codex_model: "gpt-5.3-codex"
       TF_VAR_codex_api_version: "2025-04-01-preview"
@@ -294,6 +298,8 @@ jobs:
         env:
           AZURE_OPENAI_ENDPOINT: ${{ env.TF_VAR_azure_openai_endpoint }}
           AZURE_OPENAI_API_KEY: ${{ env.TF_VAR_azure_openai_api_key }}
+          AZURE_OPENAI_EMBEDDING_ENDPOINT: ${{ env.TF_VAR_azure_openai_embedding_endpoint }}
+          AZURE_OPENAI_EMBEDDING_API_KEY: ${{ env.TF_VAR_azure_openai_embedding_api_key }}
           AZURE_OPENAI_EMBEDDING_DEPLOYMENT: ${{ env.TF_VAR_embedding_deployment }}
           AZURE_OPENAI_API_VERSION: ${{ env.TF_VAR_embeddings_api_version }}
           AZURE_OPENAI_CODEX_MODEL: ${{ env.TF_VAR_codex_model }}
@@ -330,6 +336,8 @@ jobs:
       TF_VAR_location_short: "san"
       TF_VAR_azure_openai_endpoint: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
       TF_VAR_azure_openai_api_key: ${{ secrets.AZURE_OPENAI_API_KEY }}
+      TF_VAR_azure_openai_embedding_endpoint: ${{ secrets.AZURE_OPENAI_EMBEDDING_ENDPOINT }}
+      TF_VAR_azure_openai_embedding_api_key: ${{ secrets.AZURE_OPENAI_EMBEDDING_API_KEY }}
       TF_VAR_gateway_key: ${{ secrets.AIGATEWAY_KEY }}
       TF_VAR_codex_model: "gpt-5.3-codex"
       TF_VAR_codex_api_version: "2025-04-01-preview"
@@ -471,6 +479,8 @@ jobs:
         env:
           AZURE_OPENAI_ENDPOINT: ${{ env.TF_VAR_azure_openai_endpoint }}
           AZURE_OPENAI_API_KEY: ${{ env.TF_VAR_azure_openai_api_key }}
+          AZURE_OPENAI_EMBEDDING_ENDPOINT: ${{ env.TF_VAR_azure_openai_embedding_endpoint }}
+          AZURE_OPENAI_EMBEDDING_API_KEY: ${{ env.TF_VAR_azure_openai_embedding_api_key }}
           AZURE_OPENAI_EMBEDDING_DEPLOYMENT: ${{ env.TF_VAR_embedding_deployment }}
           AZURE_OPENAI_API_VERSION: ${{ env.TF_VAR_embeddings_api_version }}
           AZURE_OPENAI_CODEX_MODEL: ${{ env.TF_VAR_codex_model }}
@@ -507,6 +517,8 @@ jobs:
       TF_VAR_location_short: "san"
       TF_VAR_azure_openai_endpoint: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
       TF_VAR_azure_openai_api_key: ${{ secrets.AZURE_OPENAI_API_KEY }}
+      TF_VAR_azure_openai_embedding_endpoint: ${{ secrets.AZURE_OPENAI_EMBEDDING_ENDPOINT }}
+      TF_VAR_azure_openai_embedding_api_key: ${{ secrets.AZURE_OPENAI_EMBEDDING_API_KEY }}
       TF_VAR_gateway_key: ${{ secrets.AIGATEWAY_KEY }}
       TF_VAR_codex_model: "gpt-4o"
       TF_VAR_codex_api_version: "2025-01-01-preview"
@@ -652,6 +664,8 @@ jobs:
         env:
           AZURE_OPENAI_ENDPOINT: ${{ env.TF_VAR_azure_openai_endpoint }}
           AZURE_OPENAI_API_KEY: ${{ env.TF_VAR_azure_openai_api_key }}
+          AZURE_OPENAI_EMBEDDING_ENDPOINT: ${{ env.TF_VAR_azure_openai_embedding_endpoint }}
+          AZURE_OPENAI_EMBEDDING_API_KEY: ${{ env.TF_VAR_azure_openai_embedding_api_key }}
           AZURE_OPENAI_EMBEDDING_DEPLOYMENT: ${{ env.TF_VAR_embedding_deployment }}
           AZURE_OPENAI_API_VERSION: ${{ env.TF_VAR_embeddings_api_version }}
           AZURE_OPENAI_CODEX_MODEL: ${{ env.TF_VAR_codex_model }}

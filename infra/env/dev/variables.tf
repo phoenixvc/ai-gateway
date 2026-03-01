@@ -25,6 +25,20 @@ variable "azure_openai_api_key" {
   }
 }
 
+variable "azure_openai_embedding_endpoint" {
+  type    = string
+  default = ""
+  validation {
+    condition     = var.azure_openai_embedding_endpoint == "" || can(regex("^https://", var.azure_openai_embedding_endpoint))
+    error_message = "azure_openai_embedding_endpoint must be empty or start with https://."
+  }
+}
+variable "azure_openai_embedding_api_key" {
+  type      = string
+  sensitive = true
+  default   = ""
+}
+
 variable "gateway_key" {
   type      = string
   sensitive = true
