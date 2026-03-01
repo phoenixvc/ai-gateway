@@ -18,29 +18,41 @@ provider "azurerm" {
 module "aigateway" {
   source = "../../modules/aigateway_aca"
 
-  env           = var.env
-  projname      = var.projname
-  location      = var.location
-  location_short= var.location_short
-  tags          = var.tags
+  env            = var.env
+  projname       = var.projname
+  location       = var.location
+  location_short = var.location_short
+  tags           = var.tags
 
-  container_image         = var.container_image
+  container_image = var.container_image
 
-  azure_openai_endpoint   = var.azure_openai_endpoint
-  azure_openai_api_key    = var.azure_openai_api_key
+  azure_openai_endpoint = var.azure_openai_endpoint
+  azure_openai_api_key  = var.azure_openai_api_key
 
-  gateway_key             = var.gateway_key
+  gateway_key = var.gateway_key
 
-  codex_model             = var.codex_model
-  codex_api_version       = var.codex_api_version
+  codex_model       = var.codex_model
+  codex_api_version = var.codex_api_version
 
-  embedding_deployment    = var.embedding_deployment
-  embeddings_api_version  = var.embeddings_api_version
+  embedding_deployment   = var.embedding_deployment
+  embeddings_api_version = var.embeddings_api_version
 
   ingress_external        = var.ingress_external
   min_replicas            = var.min_replicas
   max_replicas            = var.max_replicas
   secrets_expiration_date = var.secrets_expiration_date
+
+  langfuse_public_key = var.langfuse_public_key
+  langfuse_secret_key = var.langfuse_secret_key
+  langfuse_host       = var.langfuse_host
+
+  enable_redis_cache   = var.enable_redis_cache
+  redis_cache_capacity = var.redis_cache_capacity
+
+  max_budget      = var.max_budget
+  budget_duration = var.budget_duration
+  rpm_limit       = var.rpm_limit
+  tpm_limit       = var.tpm_limit
 }
 
 output "gateway_url" {
