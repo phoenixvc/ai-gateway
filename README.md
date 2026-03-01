@@ -15,11 +15,13 @@ OpenAI-compatible AI Gateway (LiteLLM) on Azure Container Apps. Routes `/v1/resp
 Creates the shared resource group, storage account, and container for Terraform state.
 
 **Bash:**
+
 ```bash
 ./scripts/bootstrap.sh <GITHUB_ORG> <GITHUB_REPO> [SCOPE]
 ```
 
 **PowerShell:**
+
 ```powershell
 .\scripts\bootstrap.ps1 -GITHUB_ORG <org> -GITHUB_REPO <repo> [-SCOPE <scope>]
 ```
@@ -49,11 +51,13 @@ Bootstrap prints these values. For local runs, copy `infra/.env.local.example` t
 ### 3. Terraform init
 
 **Bash:**
+
 ```bash
 ./infra/scripts/terraform-init.sh dev   # or uat, prod
 ```
 
 **PowerShell:**
+
 ```powershell
 .\infra\scripts\terraform-init.ps1 -Env dev   # or uat, prod
 ```
@@ -78,12 +82,12 @@ terraform apply
 
 ## CI/CD
 
-- **Plan** runs on PRs from the same repo; PRs from forks are skipped (no repo secrets).
-- **Deploy** runs on push to `main` or `workflow_dispatch`; dev → uat → prod sequentially.
+- CI/CD behavior, environment promotion rules, and smoke-test diagnostics are documented in [docs/CI_CD.md](docs/CI_CD.md).
 
 ## Documentation
 
 - [PRD](docs/PRD.md) – Product requirements
 - [Terraform Blueprint](docs/Terraform_Blueprint.md) – Infrastructure design
+- [CI/CD Runbook](docs/CI_CD.md) – workflow behavior, UAT toggle, smoke tests
 - [Azure OIDC Setup](docs/AZURE_OIDC_SETUP.md) – GitHub Actions OIDC configuration
 - [Secrets Checklist](docs/SECRETS.md) – Copy/paste setup for GitHub environment secrets

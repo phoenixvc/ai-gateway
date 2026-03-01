@@ -25,23 +25,23 @@ env:
 
 jobs:
   plan:
-    # PR into dev → dev | PR into main → uat (when vars.SKIP_UAT != 'true') | Push to main → prod
+    # PR into dev → dev | PR into main + label 'run-uat' → uat | Push to main/workflow_dispatch → prod
     # Skip plan for PRs from forks (no repo secrets; avoids AADSTS700213)
-    # Set repository variable SKIP_UAT to "false" when ready for UAT deploys on PR into main
+    # Runtime UAT toggle: add PR label 'run-uat' to enable UAT on PRs into main.
     if: |
       (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) &&
       (
         (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
         (github.event_name == 'workflow_dispatch') ||
         (github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev') ||
-        (github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'main' && (vars.SKIP_UAT || 'true') != 'true')
+        (github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'main' && contains(join(github.event.pull_request.labels.*.name, ','), 'run-uat'))
       )
     name: Plan ${{ matrix.environment }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        environment: ${{ (github.event_name == 'workflow_dispatch' && fromJSON('["prod"]')) || (github.event_name == 'push' && github.ref == 'refs/heads/main' && fromJSON('["prod"]')) || (github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev' && fromJSON('["dev"]')) || (github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'main' && (vars.SKIP_UAT || 'true') != 'true' && fromJSON('["uat"]')) || fromJSON('["prod"]') }}
+        environment: ${{ (github.event_name == 'workflow_dispatch' && fromJSON('["prod"]')) || (github.event_name == 'push' && github.ref == 'refs/heads/main' && fromJSON('["prod"]')) || (github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev' && fromJSON('["dev"]')) || (github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'main' && contains(join(github.event.pull_request.labels.*.name, ','), 'run-uat') && fromJSON('["uat"]')) || fromJSON('["prod"]') }}
     environment: ${{ matrix.environment }}
     defaults:
       run:
@@ -270,7 +270,7 @@ jobs:
     name: Deploy uat
     needs: plan
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'main' && (vars.SKIP_UAT || 'true') != 'true'
+    if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'main' && contains(join(github.event.pull_request.labels.*.name, ','), 'run-uat')
     environment: uat
     defaults:
       run:
@@ -411,6 +411,7 @@ jobs:
       TF_VAR_projname: "aigateway"
       TF_VAR_location: "southafricanorth"
       TF_VAR_location_short: "san"
+      EXPECTED_AOAI_ENDPOINT_HOST: "mys-prod-ai-san.cognitiveservices.azure.com"
       TF_VAR_azure_openai_endpoint: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
       TF_VAR_azure_openai_api_key: ${{ secrets.AZURE_OPENAI_API_KEY }}
       TF_VAR_gateway_key: ${{ secrets.AIGATEWAY_KEY }}
@@ -454,6 +455,10 @@ jobs:
             echo "Azure OpenAI endpoint=${TF_VAR_azure_openai_endpoint}"
             endpoint_host=$(echo "${TF_VAR_azure_openai_endpoint}" | sed -E 's#^https?://([^/]+)/?.*$#\1#')
             echo "Azure OpenAI endpoint host=${endpoint_host}"
+            if [ -n "${EXPECTED_AOAI_ENDPOINT_HOST:-}" ] && [ "${endpoint_host}" != "${EXPECTED_AOAI_ENDPOINT_HOST}" ]; then
+              echo "::error::Prod AOAI endpoint host mismatch. Expected '${EXPECTED_AOAI_ENDPOINT_HOST}', got '${endpoint_host}'. Check environment secret AZURE_OPENAI_ENDPOINT."
+              missing=1
+            fi
           fi
           if [ "${missing}" -ne 0 ]; then
             exit 1
@@ -524,4 +529,4 @@ jobs:
           aoai_endpoint: ${{ env.TF_VAR_azure_openai_endpoint }}
           aoai_api_key: ${{ env.TF_VAR_azure_openai_api_key }}
           max_attempts: "5"
-          retry_sleep: "15"  # prod: longer cold-start; allow more time between retries
+          retry_sleep: "15" # prod: longer cold-start; allow more time between retries
