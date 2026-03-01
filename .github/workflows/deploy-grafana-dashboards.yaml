@@ -75,8 +75,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo "Downloading LiteLLM dashboard from Grafana gallery (ID: 24055)..."
-          curl -sf "https://grafana.com/api/dashboards/24055/revisions/latest/download" \
+          echo "Resolving latest LiteLLM dashboard revision from Grafana gallery (ID: 24055)..."
+          REVISION=$(curl -sf "https://grafana.com/api/dashboards/24055/revisions" | jq '.[0].revision')
+          if [ -z "${REVISION}" ] || [ "${REVISION}" = "null" ] || ! [[ "${REVISION}" =~ ^[0-9]+$ ]]; then
+            echo "::error::Failed to resolve revision for Grafana dashboard 24055 (got: '${REVISION}')" >&2
+            exit 1
+          fi
+          echo "Downloading LiteLLM dashboard revision ${REVISION} from Grafana gallery (ID: 24055)..."
+          curl -sf "https://grafana.com/api/dashboards/24055/revisions/${REVISION}/download" \
             -o /tmp/litellm-24055.json
 
           DASHBOARD_JSON=$(cat /tmp/litellm-24055.json)
@@ -109,8 +115,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo "Downloading LiteLLM Trace dashboard from Grafana gallery (ID: 24064)..."
-          curl -sf "https://grafana.com/api/dashboards/24064/revisions/latest/download" \
+          echo "Resolving latest LiteLLM Trace dashboard revision from Grafana gallery (ID: 24064)..."
+          REVISION=$(curl -sf "https://grafana.com/api/dashboards/24064/revisions" | jq '.[0].revision')
+          if [ -z "${REVISION}" ] || [ "${REVISION}" = "null" ] || ! [[ "${REVISION}" =~ ^[0-9]+$ ]]; then
+            echo "::error::Failed to resolve revision for Grafana dashboard 24064 (got: '${REVISION}')" >&2
+            exit 1
+          fi
+          echo "Downloading LiteLLM Trace dashboard revision ${REVISION} from Grafana gallery (ID: 24064)..."
+          curl -sf "https://grafana.com/api/dashboards/24064/revisions/${REVISION}/download" \
             -o /tmp/litellm-24064.json
 
           DASHBOARD_JSON=$(cat /tmp/litellm-24064.json)
