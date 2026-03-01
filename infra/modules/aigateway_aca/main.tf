@@ -34,6 +34,10 @@ locals {
   # try() avoids a plan-time error when enable_redis_cache = false (count = 0).
   redis_host = try(azurerm_redis_cache.cache[0].hostname, "")
 
+  # Embedding endpoint/key: fall back to the main AOAI endpoint/key when not set
+  embedding_endpoint = var.azure_openai_embedding_endpoint != "" ? var.azure_openai_embedding_endpoint : var.azure_openai_endpoint
+  embedding_api_key  = var.azure_openai_embedding_api_key != "" ? var.azure_openai_embedding_api_key : var.azure_openai_api_key
+
   # LiteLLM proxy configuration.
   # Features enabled here:
   #   - JSON structured logging → Log Analytics Workspace via Container Apps stdout
@@ -55,8 +59,8 @@ locals {
     - model_name: ${var.embedding_deployment}
       litellm_params:
         model: azure/${var.embedding_deployment}
-        api_base: ${var.azure_openai_endpoint}
-        api_key: os.environ/LITELLM_AZURE_OPENAI_API_KEY
+        api_base: ${local.embedding_endpoint}
+        api_key: os.environ/LITELLM_AZURE_OPENAI_EMBEDDING_API_KEY
         api_version: "${var.embeddings_api_version}"
       model_info:
         mode: embedding
@@ -189,6 +193,15 @@ resource "azurerm_key_vault_secret" "azure_openai_key" {
   depends_on = [azurerm_key_vault_access_policy.terraform_client]
 }
 
+resource "azurerm_key_vault_secret" "azure_openai_embedding_key" {
+  name            = "azure-openai-embedding-key"
+  value           = local.embedding_api_key
+  key_vault_id    = azurerm_key_vault.kv.id
+  expiration_date = var.secrets_expiration_date
+
+  depends_on = [azurerm_key_vault_access_policy.terraform_client]
+}
+
 # Azure Cache for Redis (optional — set enable_redis_cache = true to provision)
 resource "azurerm_redis_cache" "cache" {
   count               = var.enable_redis_cache ? 1 : 0
@@ -282,6 +295,12 @@ resource "azurerm_container_app" "ca" {
     identity            = azurerm_user_assigned_identity.ca.id
   }
 
+  secret {
+    name                = "azure-openai-embedding-key"
+    key_vault_secret_id = azurerm_key_vault_secret.azure_openai_embedding_key.versionless_id
+    identity            = azurerm_user_assigned_identity.ca.id
+  }
+
   dynamic "secret" {
     for_each = var.enable_redis_cache ? [1] : []
     content {
@@ -335,6 +354,11 @@ resource "azurerm_container_app" "ca" {
       env {
         name        = "LITELLM_AZURE_OPENAI_API_KEY"
         secret_name = "azure-openai-key"
+      }
+
+      env {
+        name        = "LITELLM_AZURE_OPENAI_EMBEDDING_API_KEY"
+        secret_name = "azure-openai-embedding-key"
       }
 
       env {

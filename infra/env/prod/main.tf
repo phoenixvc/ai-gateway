@@ -29,6 +29,9 @@ module "aigateway" {
   azure_openai_endpoint = var.azure_openai_endpoint
   azure_openai_api_key  = var.azure_openai_api_key
 
+  azure_openai_embedding_endpoint = var.azure_openai_embedding_endpoint
+  azure_openai_embedding_api_key  = var.azure_openai_embedding_api_key
+
   gateway_key = var.gateway_key
 
   codex_model       = var.codex_model

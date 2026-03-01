@@ -30,7 +30,7 @@ import json
 import os
 import sys
 from pathlib import Path
-from urllib import error, request
+from urllib import error, parse, request
 
 
 def load_dotenv(path: Path) -> None:
@@ -48,6 +48,10 @@ def load_dotenv(path: Path) -> None:
 
 
 def http_request(method: str, url: str, headers: dict, payload: dict | None = None):
+    parsed = parse.urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        return 0, {"error": f"Unsupported URL scheme '{parsed.scheme}' in {url}"}
+
     body = None
     if payload is not None:
         body = json.dumps(payload).encode("utf-8")
@@ -177,6 +181,11 @@ def main() -> int:
 
     endpoint = os.getenv("AZURE_OPENAI_ENDPOINT", "").rstrip("/")
     api_key = os.getenv("AZURE_OPENAI_API_KEY", "")
+
+    # Embedding endpoint/key: fall back to the main AOAI endpoint/key when not set
+    emb_endpoint = os.getenv("AZURE_OPENAI_EMBEDDING_ENDPOINT", "").rstrip("/") or endpoint
+    emb_api_key = os.getenv("AZURE_OPENAI_EMBEDDING_API_KEY", "") or api_key
+
     embedding_deployment = os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT", "text-embedding-3-large")
     embedding_api_version = os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-01")
     codex_model = os.getenv("AZURE_OPENAI_CODEX_MODEL", "gpt-5.3-codex")
@@ -197,6 +206,12 @@ def main() -> int:
     print(f"Azure OpenAI endpoint:      {endpoint}")
     key_fp = __import__("hashlib").sha256(api_key.encode()).hexdigest()[:12]
     print(f"Azure OpenAI API key:       sha256:{key_fp} (len={len(api_key)})")
+    if emb_endpoint != endpoint:
+        print(f"Embedding endpoint:         {emb_endpoint}")
+        emb_key_fp = __import__("hashlib").sha256(emb_api_key.encode()).hexdigest()[:12]
+        print(f"Embedding API key:          sha256:{emb_key_fp} (len={len(emb_api_key)})")
+    else:
+        print(f"Embedding endpoint:         (same as main)")
     print(f"Embedding deployment:       {embedding_deployment}")
     print(f"Embedding API version:      {embedding_api_version}")
     print(f"Codex model:                {codex_model}")
@@ -213,7 +228,7 @@ def main() -> int:
     results.append(r)
     print(f"{'PASS' if r.passed else 'FAIL'}: {r.name} — {r.detail}")
 
-    r = test_aoai_embedding(endpoint, api_key, embedding_deployment, embedding_api_version)
+    r = test_aoai_embedding(emb_endpoint, emb_api_key, embedding_deployment, embedding_api_version)
     results.append(r)
     print(f"{'PASS' if r.passed else 'FAIL'}: {r.name} — {r.detail}")
 
@@ -256,9 +271,11 @@ def main() -> int:
         print()
         print("Troubleshooting:")
         print("  1. Verify AZURE_OPENAI_API_KEY is valid for the endpoint")
-        print(f"  2. Verify deployment '{embedding_deployment}' exists at {endpoint}")
+        print(f"  2. Verify deployment '{embedding_deployment}' exists at {emb_endpoint}")
         print(f"  3. Verify deployment '{codex_model}' exists at {endpoint}")
         print("  4. Check Azure Portal > your AOAI resource > Model deployments")
+        if emb_endpoint != endpoint:
+            print(f"  5. Embedding uses a SEPARATE endpoint: {emb_endpoint}")
 
     print("=" * 60)
     return 1 if failed else 0

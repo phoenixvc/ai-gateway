@@ -73,6 +73,23 @@ variable "azure_openai_api_key" {
   sensitive   = true
 }
 
+variable "azure_openai_embedding_endpoint" {
+  type        = string
+  description = "Azure OpenAI endpoint for embedding models. Defaults to azure_openai_endpoint if empty."
+  default     = ""
+  validation {
+    condition     = var.azure_openai_embedding_endpoint == "" || can(regex("^https://", var.azure_openai_embedding_endpoint))
+    error_message = "azure_openai_embedding_endpoint must be empty or start with https://."
+  }
+}
+
+variable "azure_openai_embedding_api_key" {
+  type        = string
+  description = "Azure OpenAI API key for embedding endpoint. Defaults to azure_openai_api_key if empty."
+  sensitive   = true
+  default     = ""
+}
+
 variable "codex_model" {
   type        = string
   description = "Codex deployment/model name for responses"
