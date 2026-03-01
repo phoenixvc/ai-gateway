@@ -118,28 +118,35 @@ jobs:
           PROM_URL=$(terraform output -raw prometheus_url 2>/dev/null || echo "")
           SA_TOKEN=$(terraform output -raw github_actions_token 2>/dev/null || echo "")
 
+          # Mask the token so it is never emitted in plain text to logs or summaries.
+          if [ -n "${SA_TOKEN}" ]; then
+            echo "::add-mask::${SA_TOKEN}"
+          fi
+
           echo "Grafana Cloud stack deployed successfully."
           echo "  Stack URL:      ${STACK_URL}"
           echo "  Prometheus URL: ${PROM_URL}"
 
-          # Write the bootstrap values to the GitHub Actions job summary so they
-          # can be copied directly from the workflow run UI.
+          # Write bootstrap instructions to the job summary.
+          # The token value is intentionally omitted — retrieve it securely via:
+          #   terraform -chdir=infra/grafana output -raw github_actions_token
+          SA_TOKEN_PREFIX="${SA_TOKEN:0:8}"
           {
             echo "## Grafana Cloud Stack — Bootstrap Secrets"
             echo ""
             echo "Set these GitHub Actions secrets to enable dashboard deployments:"
             echo ""
-            echo "| Secret | Value |"
+            echo "| Secret | How to obtain |"
             echo "| --- | --- |"
             echo "| \`GRAFANA_URL\` | \`${STACK_URL}\` |"
-            echo "| \`GRAFANA_SA_TOKEN\` | \`${SA_TOKEN}\` |"
+            echo "| \`GRAFANA_SA_TOKEN\` | Run \`terraform -chdir=infra/grafana output -raw github_actions_token\` locally (prefix: \`${SA_TOKEN_PREFIX}...\`) |"
             echo ""
             echo "### Additional info"
             echo "| Output | Value |"
             echo "| --- | --- |"
             echo "| Prometheus URL | \`${PROM_URL}\` |"
             echo ""
-            echo "> **Note:** \`GRAFANA_SA_TOKEN\` is a sensitive value — treat it as a secret."
+            echo "> **Note:** \`GRAFANA_SA_TOKEN\` is a sensitive value — never share it in logs or summaries."
             echo "> After setting these secrets, re-trigger **Deploy Grafana Dashboards** via"
             echo "> \`workflow_dispatch\` to import the LiteLLM dashboards."
           } >> "${GITHUB_STEP_SUMMARY}"
@@ -148,9 +155,10 @@ jobs:
     name: Import LiteLLM dashboards
     # Runs after Terraform apply; requires GRAFANA_URL and GRAFANA_SA_TOKEN to be
     # set as GitHub Actions secrets. On first-run bootstrap these will not yet be
-    # set — run `terraform output -raw github_actions_token` locally and set the
-    # GRAFANA_URL and GRAFANA_SA_TOKEN secrets, then re-run this workflow or
-    # trigger deploy-grafana-dashboards.yaml directly via workflow_dispatch.
+    # set — run `terraform -chdir=infra/grafana output -raw github_actions_token`
+    # locally, set the GRAFANA_URL and GRAFANA_SA_TOKEN secrets, then re-run this
+    # workflow or trigger deploy-grafana-dashboards.yaml directly via workflow_dispatch.
     needs: deploy-grafana
+    if: ${{ secrets.GRAFANA_URL != '' && secrets.GRAFANA_SA_TOKEN != '' }}
     uses: ./.github/workflows/deploy-grafana-dashboards.yaml
     secrets: inherit

@@ -65,14 +65,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # POST /api/folders - 412 Precondition Failed means the folder UID is
-          # already taken (i.e. it already exists), which is not an error here.
+          # POST /api/folders - 409 Conflict or 412 Precondition Failed both mean
+          # the folder UID is already taken (i.e. it already exists), which is
+          # not an error here.
           HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
             -H "Authorization: Bearer ${GRAFANA_SA_TOKEN}" \
             -H "Content-Type: application/json" \
             -d '{"title":"LiteLLM","uid":"litellm"}' \
             "${GRAFANA_URL}/api/folders")
-          if [ "${HTTP_STATUS}" -eq 200 ] || [ "${HTTP_STATUS}" -eq 409 ]; then
+          if [ "${HTTP_STATUS}" -eq 200 ] || [ "${HTTP_STATUS}" -eq 409 ] || [ "${HTTP_STATUS}" -eq 412 ]; then
             echo "LiteLLM folder ready (HTTP ${HTTP_STATUS})"
           else
             echo "::error::Failed to create LiteLLM folder (HTTP ${HTTP_STATUS})"
