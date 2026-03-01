@@ -29,6 +29,14 @@ inputs:
     required: false
     default: "10"
     description: Seconds between retries
+  models_wait_attempts:
+    required: false
+    default: "3"
+    description: retry attempts waiting for /v1/models to return at least one model (handles LiteLLM cold-start)
+  models_wait_sleep:
+    required: false
+    default: "30"
+    description: Seconds between /v1/models wait retries when the model list is empty
 runs:
   using: composite
   steps:
@@ -43,6 +51,8 @@ runs:
         AOAI_KEY: ${{ inputs.aoai_api_key }}
         SMOKE_MAX_ATTEMPTS: ${{ inputs.max_attempts }}
         SMOKE_RETRY_SLEEP: ${{ inputs.retry_sleep }}
+        SMOKE_MODELS_WAIT_ATTEMPTS: ${{ inputs.models_wait_attempts }}
+        SMOKE_MODELS_WAIT_SLEEP: ${{ inputs.models_wait_sleep }}
       run: |
         set -euo pipefail
         echo "Gateway: ${GW}"
@@ -258,10 +268,52 @@ runs:
           return 0
         }
 
+        require_models_or_wait() {
+          if ! command -v jq >/dev/null 2>&1; then
+            return 0  # jq unavailable; proceed without model-list check
+          fi
+          if [ -s /tmp/models.ids ]; then
+            return 0
+          fi
+
+          local wait_attempts="${SMOKE_MODELS_WAIT_ATTEMPTS:-3}"
+          local wait_sleep="${SMOKE_MODELS_WAIT_SLEEP:-30}"
+
+          for attempt in $(seq 1 "${wait_attempts}"); do
+            echo "LiteLLM /v1/models is empty; querying /health for diagnostics (wait ${attempt}/${wait_attempts})..."
+            curl -sS -o /tmp/litellm_health.json -w "%{http_code}" \
+              -X GET "${GW}/health" \
+              -H "Authorization: ${AUTH_HEADER_VALUE}" \
+              > /tmp/litellm_health.code 2>/dev/null || true
+            local health_code
+            health_code=$(cat /tmp/litellm_health.code 2>/dev/null || echo "")
+            if [ -z "$health_code" ] || ! [[ "$health_code" =~ ^[0-9]+$ ]]; then health_code=0; fi
+            echo "  /health HTTP ${health_code}"
+            if [ -s /tmp/litellm_health.json ]; then
+              head -c 1200 /tmp/litellm_health.json || true  # first 1200 chars, matching other diagnostics
+              echo
+            fi
+            echo "  Waiting ${wait_sleep}s before re-checking /v1/models..."
+            sleep "${wait_sleep}"
+            fetch_models || true
+            jq -r '.data[]?.id // empty' /tmp/models.json 2>/dev/null | sed '/^$/d' > /tmp/models.ids || true
+            if [ -s /tmp/models.ids ]; then
+              echo "LiteLLM models now available after wait:"
+              head -n 30 /tmp/models.ids | sed 's/^/- /'
+              return 0
+            fi
+          done
+
+          echo "::error::LiteLLM /v1/models is still empty after ${wait_attempts} wait attempts. No healthy deployments available." >&2
+          dump_models_diagnostics
+          exit 1
+        }
+
         fetch_aoai_deployments
 
         if fetch_models; then
           resolve_effective_models
+          require_models_or_wait
         else
           echo "Unable to fetch /v1/models after retries; using requested models as-is."
           EMB_EFFECTIVE="${EMB_MODEL}"

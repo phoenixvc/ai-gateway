@@ -529,3 +529,5 @@ jobs:
           aoai_api_key: ${{ env.TF_VAR_azure_openai_api_key }}
           max_attempts: "5"
           retry_sleep: "15" # prod: longer cold-start; allow more time between retries
+          models_wait_attempts: "5" # prod: wait longer for LiteLLM to register healthy deployments
+          models_wait_sleep: "30"
