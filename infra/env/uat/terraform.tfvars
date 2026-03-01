@@ -1,7 +1,7 @@
 env            = "uat"
-projname        = "aigateway"
-location        = "southafricanorth"
-location_short  = "san"
+projname       = "aigateway"
+location       = "southafricanorth"
+location_short = "san"
 
 # Your Azure OpenAI endpoint host.
 # NOTE: The TF_VAR_azure_openai_endpoint environment variable (set via the
@@ -20,7 +20,7 @@ embeddings_api_version = "2023-05-15"
 secrets_expiration_date = "2027-03-31T00:00:00Z"
 
 tags = {
-  owner    = "ai-gateway-team"
-  project  = "aigateway"
-  env      = "uat"
+  owner   = "ai-gateway-team"
+  project = "aigateway"
+  env     = "uat"
 }

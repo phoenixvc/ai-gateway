@@ -30,9 +30,17 @@ locals {
     project = var.projname
   }, var.tags)
 
-  # Minimal LiteLLM config: enforce gateway key and route to Azure
-  # We keep it tiny: single upstream, OpenAI-compatible endpoints.
-  # LiteLLM specifics may evolve; this pattern is reliable for basic proxying.
+  # Redis hostname: resolved when Redis is enabled, empty string otherwise.
+  # try() avoids a plan-time error when enable_redis_cache = false (count = 0).
+  redis_host = try(azurerm_redis_cache.cache[0].hostname, "")
+
+  # LiteLLM proxy configuration.
+  # Features enabled here:
+  #   - JSON structured logging → Log Analytics Workspace via Container Apps stdout
+  #   - Prometheus /metrics endpoint (built-in, no extra infra)
+  #   - Langfuse tracing (when langfuse_public_key is provided)
+  #   - Redis semantic caching (when enable_redis_cache = true)
+  #   - Global budget / rate limits (when set above 0)
   litellm_config = <<-YAML
   model_list:
     - model_name: ${var.codex_model}
@@ -60,6 +68,39 @@ locals {
   #   | project TimeGenerated, Log_s
   litellm_settings:
     json_logs: true
+    # Prometheus /metrics: token usage, latency and error rate at <gateway>/metrics
+    success_callback:
+      - prometheus
+  %{if var.langfuse_public_key != "" && var.langfuse_secret_key != ""~}
+      - langfuse
+  %{endif~}
+    failure_callback:
+      - prometheus
+  %{if var.langfuse_public_key != "" && var.langfuse_secret_key != ""~}
+      - langfuse
+  %{endif~}
+  %{if var.enable_redis_cache~}
+    # Redis: deduplicate identical requests to reduce Azure OpenAI token spend
+    cache: true
+    cache_params:
+      type: redis
+      host: ${local.redis_host}
+      port: 6380
+      password: os.environ/REDIS_PASSWORD
+      ssl: true
+  %{endif~}
+  %{if var.max_budget > 0~}
+    max_budget: ${var.max_budget}
+  %{endif~}
+  %{if var.budget_duration != ""~}
+    budget_duration: "${var.budget_duration}"
+  %{endif~}
+  %{if var.rpm_limit > 0~}
+    rpm_limit: ${var.rpm_limit}
+  %{endif~}
+  %{if var.tpm_limit > 0~}
+    tpm_limit: ${var.tpm_limit}
+  %{endif~}
 
   # Simple auth guard: require x-gateway-key (we implement via LiteLLM master key)
   # Many OpenAI-compatible tools send Authorization; Roo can send custom headers.
@@ -148,6 +189,50 @@ resource "azurerm_key_vault_secret" "azure_openai_key" {
   depends_on = [azurerm_key_vault_access_policy.terraform_client]
 }
 
+# Azure Cache for Redis (optional — set enable_redis_cache = true to provision)
+resource "azurerm_redis_cache" "cache" {
+  count               = var.enable_redis_cache ? 1 : 0
+  name                = "${local.prefix}-redis-${var.location_short}"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+  capacity            = var.redis_cache_capacity
+  family              = "C"
+  sku_name            = "Basic"
+  minimum_tls_version = "1.2"
+  tags                = local.tags
+}
+
+resource "azurerm_key_vault_secret" "redis_password" {
+  count           = var.enable_redis_cache ? 1 : 0
+  name            = "redis-password"
+  value           = azurerm_redis_cache.cache[0].primary_access_key
+  key_vault_id    = azurerm_key_vault.kv.id
+  expiration_date = var.secrets_expiration_date
+
+  depends_on = [azurerm_key_vault_access_policy.terraform_client]
+}
+
+# Langfuse observability secrets (optional — only created when keys are supplied)
+resource "azurerm_key_vault_secret" "langfuse_public_key" {
+  count           = var.langfuse_public_key != "" && var.langfuse_secret_key != "" ? 1 : 0
+  name            = "langfuse-public-key"
+  value           = var.langfuse_public_key
+  key_vault_id    = azurerm_key_vault.kv.id
+  expiration_date = var.secrets_expiration_date
+
+  depends_on = [azurerm_key_vault_access_policy.terraform_client]
+}
+
+resource "azurerm_key_vault_secret" "langfuse_secret_key" {
+  count           = var.langfuse_public_key != "" && var.langfuse_secret_key != "" ? 1 : 0
+  name            = "langfuse-secret-key"
+  value           = var.langfuse_secret_key
+  key_vault_id    = azurerm_key_vault.kv.id
+  expiration_date = var.secrets_expiration_date
+
+  depends_on = [azurerm_key_vault_access_policy.terraform_client]
+}
+
 resource "azurerm_user_assigned_identity" "ca" {
   name                = "${local.ca_name}-id"
   resource_group_name = azurerm_resource_group.rg.name
@@ -175,7 +260,7 @@ resource "azurerm_container_app" "ca" {
   depends_on = [azurerm_key_vault_access_policy.container_app]
 
   name                         = local.ca_name
-  container_app_environment_id  = azurerm_container_app_environment.cae.id
+  container_app_environment_id = azurerm_container_app_environment.cae.id
   resource_group_name          = azurerm_resource_group.rg.name
   revision_mode                = "Single"
   tags                         = local.tags
@@ -186,15 +271,42 @@ resource "azurerm_container_app" "ca" {
   }
 
   secret {
-    name                  = "azure-openai-key"
-    key_vault_secret_id   = azurerm_key_vault_secret.azure_openai_key.versionless_id
-    identity              = azurerm_user_assigned_identity.ca.id
+    name                = "azure-openai-key"
+    key_vault_secret_id = azurerm_key_vault_secret.azure_openai_key.versionless_id
+    identity            = azurerm_user_assigned_identity.ca.id
   }
 
   secret {
-    name                  = "gateway-key"
-    key_vault_secret_id   = azurerm_key_vault_secret.gateway_key.versionless_id
-    identity              = azurerm_user_assigned_identity.ca.id
+    name                = "gateway-key"
+    key_vault_secret_id = azurerm_key_vault_secret.gateway_key.versionless_id
+    identity            = azurerm_user_assigned_identity.ca.id
+  }
+
+  dynamic "secret" {
+    for_each = var.enable_redis_cache ? [1] : []
+    content {
+      name                = "redis-password"
+      key_vault_secret_id = azurerm_key_vault_secret.redis_password[0].versionless_id
+      identity            = azurerm_user_assigned_identity.ca.id
+    }
+  }
+
+  dynamic "secret" {
+    for_each = var.langfuse_public_key != "" && var.langfuse_secret_key != "" ? [1] : []
+    content {
+      name                = "langfuse-public-key"
+      key_vault_secret_id = azurerm_key_vault_secret.langfuse_public_key[0].versionless_id
+      identity            = azurerm_user_assigned_identity.ca.id
+    }
+  }
+
+  dynamic "secret" {
+    for_each = var.langfuse_public_key != "" && var.langfuse_secret_key != "" ? [1] : []
+    content {
+      name                = "langfuse-secret-key"
+      key_vault_secret_id = azurerm_key_vault_secret.langfuse_secret_key[0].versionless_id
+      identity            = azurerm_user_assigned_identity.ca.id
+    }
   }
 
   template {
@@ -228,6 +340,38 @@ resource "azurerm_container_app" "ca" {
       env {
         name        = "LITELLM_GATEWAY_KEY"
         secret_name = "gateway-key"
+      }
+
+      dynamic "env" {
+        for_each = var.enable_redis_cache ? [1] : []
+        content {
+          name        = "REDIS_PASSWORD"
+          secret_name = "redis-password"
+        }
+      }
+
+      dynamic "env" {
+        for_each = var.langfuse_public_key != "" && var.langfuse_secret_key != "" ? [1] : []
+        content {
+          name        = "LANGFUSE_PUBLIC_KEY"
+          secret_name = "langfuse-public-key"
+        }
+      }
+
+      dynamic "env" {
+        for_each = var.langfuse_public_key != "" && var.langfuse_secret_key != "" ? [1] : []
+        content {
+          name        = "LANGFUSE_SECRET_KEY"
+          secret_name = "langfuse-secret-key"
+        }
+      }
+
+      dynamic "env" {
+        for_each = var.langfuse_host != "" ? [var.langfuse_host] : []
+        content {
+          name  = "LANGFUSE_HOST"
+          value = env.value
+        }
       }
 
       # LiteLLM commonly listens on 4000; set port as needed

@@ -79,3 +79,49 @@ variable "secrets_expiration_date" {
     error_message = "secrets_expiration_date must be in ISO-8601 UTC format and strictly in the future relative to plan time."
   }
 }
+
+variable "langfuse_public_key" {
+  type    = string
+  default = ""
+}
+
+variable "langfuse_secret_key" {
+  type      = string
+  sensitive = true
+  default   = ""
+}
+
+variable "langfuse_host" {
+  type    = string
+  default = ""
+}
+
+variable "enable_redis_cache" {
+  type    = bool
+  default = false
+}
+
+variable "redis_cache_capacity" {
+  type    = number
+  default = 0
+}
+
+variable "max_budget" {
+  type    = number
+  default = 0
+}
+
+variable "budget_duration" {
+  type    = string
+  default = ""
+}
+
+variable "rpm_limit" {
+  type    = number
+  default = 0
+}
+
+variable "tpm_limit" {
+  type    = number
+  default = 0
+}

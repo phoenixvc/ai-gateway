@@ -1,7 +1,7 @@
 env            = "dev"
-projname        = "aigateway"
-location        = "southafricanorth"
-location_short  = "san"
+projname       = "aigateway"
+location       = "southafricanorth"
+location_short = "san"
 
 # Your Azure OpenAI endpoint host
 # Placeholder value, will be overridden by environment variable or should be set by user
@@ -17,7 +17,7 @@ embeddings_api_version = "2023-05-15"
 secrets_expiration_date = "2027-03-31T00:00:00Z"
 
 tags = {
-  owner    = "J"
-  project  = "aigateway"
-  env      = "dev"
+  owner   = "J"
+  project = "aigateway"
+  env     = "dev"
 }
