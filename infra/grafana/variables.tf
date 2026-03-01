@@ -1,6 +1,6 @@
 variable "grafana_cloud_access_policy_token" {
   type        = string
-  description = "Grafana Cloud access policy token. Generate at https://grafana.com/profile/api-keys with scopes: stacks:read, stacks:write, stack-service-accounts:read, stack-service-accounts:write."
+  description = "Grafana Cloud access policy token. Generate at https://grafana.com/profile/api-keys with scopes: stacks:read, stacks:write, stack-service-accounts:write."
   sensitive   = true
 }
 

@@ -34,9 +34,8 @@ locals {
   # try() avoids a plan-time error when enable_redis_cache = false (count = 0).
   redis_host = try(azurerm_redis_cache.cache[0].hostname, "")
 
-  # Embedding endpoint/key: fall back to the main AOAI endpoint/key when not set
+  # Embedding endpoint: fall back to the main AOAI endpoint when not set
   embedding_endpoint = var.azure_openai_embedding_endpoint != "" ? var.azure_openai_embedding_endpoint : var.azure_openai_endpoint
-  embedding_api_key  = var.azure_openai_embedding_api_key != "" ? var.azure_openai_embedding_api_key : var.azure_openai_api_key
 
   # LiteLLM proxy configuration.
   # Features enabled here:
@@ -194,8 +193,9 @@ resource "azurerm_key_vault_secret" "azure_openai_key" {
 }
 
 resource "azurerm_key_vault_secret" "azure_openai_embedding_key" {
+  count           = var.azure_openai_embedding_api_key != "" ? 1 : 0
   name            = "azure-openai-embedding-key"
-  value           = local.embedding_api_key
+  value           = var.azure_openai_embedding_api_key
   key_vault_id    = azurerm_key_vault.kv.id
   expiration_date = var.secrets_expiration_date
 
@@ -295,10 +295,13 @@ resource "azurerm_container_app" "ca" {
     identity            = azurerm_user_assigned_identity.ca.id
   }
 
-  secret {
-    name                = "azure-openai-embedding-key"
-    key_vault_secret_id = azurerm_key_vault_secret.azure_openai_embedding_key.versionless_id
-    identity            = azurerm_user_assigned_identity.ca.id
+  dynamic "secret" {
+    for_each = var.azure_openai_embedding_api_key != "" ? [1] : []
+    content {
+      name                = "azure-openai-embedding-key"
+      key_vault_secret_id = azurerm_key_vault_secret.azure_openai_embedding_key[0].versionless_id
+      identity            = azurerm_user_assigned_identity.ca.id
+    }
   }
 
   dynamic "secret" {
@@ -358,7 +361,7 @@ resource "azurerm_container_app" "ca" {
 
       env {
         name        = "LITELLM_AZURE_OPENAI_EMBEDDING_API_KEY"
-        secret_name = "azure-openai-embedding-key"
+        secret_name = var.azure_openai_embedding_api_key != "" ? "azure-openai-embedding-key" : "azure-openai-key"
       }
 
       env {

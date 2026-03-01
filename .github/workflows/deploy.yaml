@@ -131,13 +131,6 @@ jobs:
         run: |
           terraform plan -out=tfplan
 
-      - name: Upload Plan
-        uses: actions/upload-artifact@v4
-        with:
-          name: tfplan-${{ matrix.environment }}
-          path: infra/env/${{ matrix.environment }}/tfplan
-          retention-days: 1
-
   deploy-dev:
     name: Deploy dev
     needs: plan
