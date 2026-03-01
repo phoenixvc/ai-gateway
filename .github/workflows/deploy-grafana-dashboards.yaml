@@ -1,0 +1,138 @@
+name: Deploy Grafana Dashboards
+
+# Deploys the LiteLLM (24055) and LiteLLM Trace (24064) dashboards from the
+# Grafana dashboard gallery into the configured Grafana Cloud stack.
+#
+# Required GitHub Actions secrets (set at repository or environment level):
+#   GRAFANA_URL          – Stack URL, e.g. https://pvc-aigateway.grafana.net
+#                          (output by `terraform output stack_url` in infra/grafana)
+#   GRAFANA_SA_TOKEN     – Editor service account token
+#                          (output by `terraform output -raw github_actions_token` in infra/grafana)
+#
+# Optional GitHub Actions variable (set at repository level):
+#   GRAFANA_PROMETHEUS_DATASOURCE – Name of the Prometheus data source in the
+#                                   stack (default: grafana-prom). The LiteLLM
+#                                   dashboards bind to this data source at import
+#                                   time via the __inputs mapping.
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/deploy-grafana-dashboards.yaml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-dashboards:
+    name: Import LiteLLM dashboards into Grafana Cloud
+    runs-on: ubuntu-latest
+    environment: prod
+
+    env:
+      GRAFANA_URL: ${{ secrets.GRAFANA_URL }}
+      GRAFANA_SA_TOKEN: ${{ secrets.GRAFANA_SA_TOKEN }}
+      # Name of the Prometheus data source in your Grafana Cloud stack.
+      # Override with a repository variable if yours differs from the default.
+      GRAFANA_PROMETHEUS_DATASOURCE: ${{ vars.GRAFANA_PROMETHEUS_DATASOURCE || 'grafana-prom' }}
+
+    steps:
+      - name: Validate required secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=0
+          for v in GRAFANA_URL GRAFANA_SA_TOKEN; do
+            if [ -z "${!v:-}" ]; then
+              echo "::error::Missing required secret: ${v}"
+              missing=1
+            fi
+          done
+          [ "${missing}" -eq 0 ] || exit 1
+
+      - name: Ensure LiteLLM folder exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          # POST /api/folders - 412 Precondition Failed means the folder UID is
+          # already taken (i.e. it already exists), which is not an error here.
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+            -H "Authorization: Bearer ${GRAFANA_SA_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d '{"title":"LiteLLM","uid":"litellm"}' \
+            "${GRAFANA_URL}/api/folders")
+          if [ "${HTTP_STATUS}" -eq 200 ] || [ "${HTTP_STATUS}" -eq 412 ]; then
+            echo "LiteLLM folder ready (HTTP ${HTTP_STATUS})"
+          else
+            echo "::error::Failed to create LiteLLM folder (HTTP ${HTTP_STATUS})"
+            exit 1
+          fi
+
+      - name: Import LiteLLM dashboard (ID 24055)
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Downloading LiteLLM dashboard from Grafana gallery (ID: 24055)..."
+          curl -sf "https://grafana.com/api/dashboards/24055/revisions/latest/download" \
+            -o /tmp/litellm-24055.json
+
+          DASHBOARD_JSON=$(cat /tmp/litellm-24055.json)
+
+          # Map every datasource __input to the configured Prometheus data source.
+          # Non-datasource inputs are passed through with their default values.
+          INPUTS=$(echo "${DASHBOARD_JSON}" | jq --arg ds "${GRAFANA_PROMETHEUS_DATASOURCE}" '
+            [.__inputs // [] | .[] |
+              if .type == "datasource" then
+                {name: .name, type: .type, pluginId: .pluginId, value: $ds}
+              else
+                {name: .name, type: .type, value: (.value // "")}
+              end
+            ]')
+
+          RESPONSE=$(jq -n \
+            --argjson dashboard "${DASHBOARD_JSON}" \
+            --argjson inputs "${INPUTS}" \
+            '{dashboard: $dashboard, folderUid: "litellm", overwrite: true, inputs: $inputs}' \
+          | curl -sf -X POST \
+            -H "Authorization: Bearer ${GRAFANA_SA_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d @- \
+            "${GRAFANA_URL}/api/dashboards/import")
+
+          IMPORTED_URL=$(echo "${RESPONSE}" | jq -r '.importedUrl // empty')
+          echo "LiteLLM dashboard (24055) imported successfully: ${GRAFANA_URL}${IMPORTED_URL}"
+
+      - name: Import LiteLLM Trace dashboard (ID 24064)
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Downloading LiteLLM Trace dashboard from Grafana gallery (ID: 24064)..."
+          curl -sf "https://grafana.com/api/dashboards/24064/revisions/latest/download" \
+            -o /tmp/litellm-24064.json
+
+          DASHBOARD_JSON=$(cat /tmp/litellm-24064.json)
+
+          INPUTS=$(echo "${DASHBOARD_JSON}" | jq --arg ds "${GRAFANA_PROMETHEUS_DATASOURCE}" '
+            [.__inputs // [] | .[] |
+              if .type == "datasource" then
+                {name: .name, type: .type, pluginId: .pluginId, value: $ds}
+              else
+                {name: .name, type: .type, value: (.value // "")}
+              end
+            ]')
+
+          RESPONSE=$(jq -n \
+            --argjson dashboard "${DASHBOARD_JSON}" \
+            --argjson inputs "${INPUTS}" \
+            '{dashboard: $dashboard, folderUid: "litellm", overwrite: true, inputs: $inputs}' \
+          | curl -sf -X POST \
+            -H "Authorization: Bearer ${GRAFANA_SA_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d @- \
+            "${GRAFANA_URL}/api/dashboards/import")
+
+          IMPORTED_URL=$(echo "${RESPONSE}" | jq -r '.importedUrl // empty')
+          echo "LiteLLM Trace dashboard (24064) imported successfully: ${GRAFANA_URL}${IMPORTED_URL}"
