@@ -132,7 +132,7 @@ runs:
             return 0
           fi
 
-          local deploy_url="${AOAI_ENDPOINT%/}/openai/deployments?api-version=2023-05-15"
+          local deploy_url="${AOAI_ENDPOINT%/}/openai/deployments?api-version=2024-02-01"
           curl -sS --connect-timeout 10 --max-time 30 \
             -o /tmp/aoai_deployments.json -w "%{http_code}" \
             -X GET "${deploy_url}" \
@@ -180,7 +180,10 @@ runs:
             -d "{\"model\":\"${candidate}\",\"input\":\"smoke test\"}" \
             > /tmp/emb_probe.code 2>/dev/null || true
           code=$(cat /tmp/emb_probe.code 2>/dev/null || echo "")
-          [ -z "$code" ] || [[ ! "$code" =~ ^[0-9]+$ ]] && code=0
+          if [ -z "$code" ] || [[ ! "$code" =~ ^[0-9]+$ ]]; then
+            code=0
+          fi
+          EMB_PROBE_LAST_CODE="${code}"
           if [ "$code" -ge 200 ] && [ "$code" -lt 300 ]; then
             return 0
           fi
@@ -275,12 +278,17 @@ runs:
             fi
           } | sed '/^$/d' | awk '!seen[$0]++' > /tmp/emb.candidates
 
+          EMB_PROBE_LAST_CODE=0
           while IFS= read -r candidate; do
             echo "Probing embedding candidate: ${candidate}"
             if probe_embedding_model "${candidate}"; then
               EMB_EFFECTIVE="${candidate}"
               echo "Selected embedding model from probe: ${EMB_EFFECTIVE}"
               return 0
+            fi
+            echo "  Probe for '${candidate}' returned HTTP ${EMB_PROBE_LAST_CODE}."
+            if [ "${EMB_PROBE_LAST_CODE}" -eq 401 ]; then
+              echo "  HTTP 401 indicates the backend Azure OpenAI API key may be invalid or the deployment '${candidate}' is not accessible with the configured credentials."
             fi
           done < /tmp/emb.candidates
 
@@ -387,6 +395,9 @@ runs:
         done
         if [ "$EMB_CODE" -lt 200 ] || [ "$EMB_CODE" -ge 300 ]; then
           echo "Embeddings failed after ${SMOKE_MAX_ATTEMPTS} attempts (${EMB_CODE})" >&2
+          if [ "$EMB_CODE" -eq 401 ]; then
+            echo "::error::HTTP 401 from embeddings endpoint. Check that the Azure OpenAI API key (TF_VAR_azure_openai_api_key) is valid and the embedding deployment '${EMB_EFFECTIVE}' exists at the configured endpoint. Ensure embeddings_api_version is >= 2024-02-01 for text-embedding-3-large." >&2
+          fi
           cat /tmp/emb.json >&2 || true
           exit 1
         fi
