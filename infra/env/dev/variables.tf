@@ -128,6 +128,8 @@ variable "redis_cache_capacity" {
     error_message = "redis_cache_capacity must be non-negative."
   }
 }
+
+variable "max_budget" {
   type    = number
   default = 0
   validation {
