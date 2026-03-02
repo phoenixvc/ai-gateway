@@ -23,7 +23,7 @@ inputs:
     description: Optional Azure OpenAI API key for diagnostics (fingerprint only)
   max_attempts:
     required: false
-    default: "5"
+    default: "3"
     description: Max retry attempts per endpoint
   retry_sleep:
     required: false
@@ -31,7 +31,7 @@ inputs:
     description: Seconds between retries
   models_wait_attempts:
     required: false
-    default: "3"
+    default: "2"
     description: retry attempts waiting for /v1/models to return at least one model (handles LiteLLM cold-start)
   models_wait_sleep:
     required: false
@@ -266,15 +266,6 @@ runs:
           {
             echo "${EMB_EFFECTIVE:-}"
             echo "${EMB_MODEL}"
-            echo "text-embedding-3-large"
-            echo "text-embedding-3-small"
-            echo "text-embedding-ada-002"
-            if [ -s /tmp/models.ids ]; then
-              grep -Ei 'embed|embedding' /tmp/models.ids || true
-            fi
-            if [ -s /tmp/aoai.deployments.embeddings ]; then
-              cat /tmp/aoai.deployments.embeddings || true
-            fi
           } | sed '/^$/d' | awk '!seen[$0]++' > /tmp/emb.candidates
 
           EMB_PROBE_LAST_CODE=0
