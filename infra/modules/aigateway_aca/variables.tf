@@ -169,7 +169,7 @@ variable "enable_redis_cache" {
 
 variable "redis_cache_sku" {
   type        = string
-  description = "Azure Cache for Redis SKU. Use 'Standard' for production (replication + SLA) or 'Basic' for dev/test. Defaults to 'Standard' for prod environments."
+  description = "Azure Cache for Redis SKU. Use 'Standard' for production (replication + SLA) or 'Basic' for dev/test."
   default     = "Basic"
   validation {
     condition     = contains(["Basic", "Standard", "Premium"], var.redis_cache_sku)

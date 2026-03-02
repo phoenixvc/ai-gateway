@@ -43,8 +43,8 @@ runs:
         CA_ID="/subscriptions/${{ inputs.subscription_id }}/resourceGroups/${RG_NAME}/providers/Microsoft.App/containerApps/${CA_NAME}"
         ALLOW_AUTO_DELETE="${{ inputs.allow_auto_delete }}"
 
-        if az containerapp show --ids "${CA_ID}" &>/dev/null; then
-          if ! PROV_STATE=$(az containerapp show --ids "${CA_ID}" --query "properties.provisioningState" -o tsv 2>/dev/null); then
+        if PROV_STATE=$(az containerapp show --ids "${CA_ID}" --query "properties.provisioningState" -o tsv 2>/dev/null); then
+          if [ -z "${PROV_STATE}" ]; then
             echo "::warning::Could not determine provisioningState for ${CA_NAME}. Skipping import/delete."
           else
             echo "Container app ${CA_NAME} exists with provisioningState: ${PROV_STATE}"
