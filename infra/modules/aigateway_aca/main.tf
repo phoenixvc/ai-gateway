@@ -211,7 +211,7 @@ resource "azurerm_redis_cache" "cache" {
   resource_group_name = azurerm_resource_group.rg.name
   capacity            = var.redis_cache_capacity
   family              = "C"
-  sku_name            = "Basic"
+  sku_name            = var.redis_cache_sku
   minimum_tls_version = "1.2"
   tags                = local.tags
 }

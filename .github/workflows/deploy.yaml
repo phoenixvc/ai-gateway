@@ -135,6 +135,13 @@ jobs:
         run: |
           terraform plan -out=tfplan
 
+      - name: Upload Plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-${{ matrix.environment }}
+          path: infra/env/${{ matrix.environment }}/tfplan
+          retention-days: 1
+
   deploy-dev:
     name: Deploy dev
     needs: plan
@@ -221,41 +228,13 @@ jobs:
             -backend-config="key=dev.terraform.tfstate"
 
       - name: Import existing Container App into Terraform state
-        shell: bash
-        run: |
-          set -euo pipefail
-          PROJNAME="${TF_VAR_projname}"
-          ENV="${TF_VAR_env}"
-          LOC="${TF_VAR_location_short}"
-          CA_NAME="pvc-${ENV}-${PROJNAME}-ca-${LOC}"
-          RG_NAME="pvc-${ENV}-${PROJNAME}-rg-${LOC}"
-          CA_ID="/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${RG_NAME}/providers/Microsoft.App/containerApps/${CA_NAME}"
-          if az containerapp show --ids "${CA_ID}" &>/dev/null; then
-            if ! PROV_STATE=$(az containerapp show --ids "${CA_ID}" --query "properties.provisioningState" -o tsv 2>/dev/null); then
-              echo "::warning::Could not determine provisioningState for ${CA_NAME}. Skipping import/delete."
-            else
-              echo "Container app ${CA_NAME} exists with provisioningState: ${PROV_STATE}"
-              if [ "${PROV_STATE}" = "Failed" ]; then
-                echo "Container app ${CA_NAME} is in Failed state. Deleting so Terraform can recreate it cleanly..."
-                if ! az containerapp delete --ids "${CA_ID}" --yes; then
-                  echo "::error::Failed to delete Container App ${CA_NAME}. Manual cleanup may be required."
-                  exit 1
-                fi
-                if terraform state list | grep -qxF "module.aigateway.azurerm_container_app.ca"; then
-                  echo "Removing stale state entry for ${CA_NAME}..."
-                  terraform state rm module.aigateway.azurerm_container_app.ca
-                fi
-              elif terraform state list | grep -qxF "module.aigateway.azurerm_container_app.ca"; then
-                echo "Container app ${CA_NAME} already in Terraform state, skipping import."
-              else
-                echo "Importing ${CA_NAME} into Terraform state..."
-                terraform state rm module.aigateway.azurerm_container_app.ca 2>/dev/null || true
-                terraform import module.aigateway.azurerm_container_app.ca "${CA_ID}"
-              fi
-            fi
-          else
-            echo "Container app ${CA_NAME} not found in Azure, no import needed."
-          fi
+        uses: ./.github/actions/import-container-app
+        with:
+          projname: ${{ env.TF_VAR_projname }}
+          env: ${{ env.TF_VAR_env }}
+          location_short: ${{ env.TF_VAR_location_short }}
+          subscription_id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+          terraform_working_directory: infra/env/dev
 
       - name: Terraform Plan
         run: |
@@ -299,8 +278,9 @@ jobs:
           AZURE_OPENAI_EMBEDDING_API_KEY: ${{ env.TF_VAR_azure_openai_embedding_api_key }}
           AZURE_OPENAI_EMBEDDING_DEPLOYMENT: ${{ env.TF_VAR_embedding_deployment }}
           AZURE_OPENAI_API_VERSION: ${{ env.TF_VAR_embeddings_api_version }}
+          AZURE_OPENAI_CHAT_DEPLOYMENT: "gpt-4.1"
+          AZURE_OPENAI_CHAT_API_VERSION: ${{ env.TF_VAR_codex_api_version }}
           AZURE_OPENAI_CODEX_MODEL: ${{ env.TF_VAR_codex_model }}
-          AZURE_OPENAI_CODEX_API_VERSION: ${{ env.TF_VAR_codex_api_version }}
         working-directory: ${{ github.workspace }}
         run: python3 scripts/integration_test.py
 
@@ -402,41 +382,13 @@ jobs:
             -backend-config="key=uat.terraform.tfstate"
 
       - name: Import existing Container App into Terraform state
-        shell: bash
-        run: |
-          set -euo pipefail
-          PROJNAME="${TF_VAR_projname}"
-          ENV="${TF_VAR_env}"
-          LOC="${TF_VAR_location_short}"
-          CA_NAME="pvc-${ENV}-${PROJNAME}-ca-${LOC}"
-          RG_NAME="pvc-${ENV}-${PROJNAME}-rg-${LOC}"
-          CA_ID="/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${RG_NAME}/providers/Microsoft.App/containerApps/${CA_NAME}"
-          if az containerapp show --ids "${CA_ID}" &>/dev/null; then
-            if ! PROV_STATE=$(az containerapp show --ids "${CA_ID}" --query "properties.provisioningState" -o tsv 2>/dev/null); then
-              echo "::warning::Could not determine provisioningState for ${CA_NAME}. Skipping import/delete."
-            else
-              echo "Container app ${CA_NAME} exists with provisioningState: ${PROV_STATE}"
-              if [ "${PROV_STATE}" = "Failed" ]; then
-                echo "Container app ${CA_NAME} is in Failed state. Deleting so Terraform can recreate it cleanly..."
-                if ! az containerapp delete --ids "${CA_ID}" --yes; then
-                  echo "::error::Failed to delete Container App ${CA_NAME}. Manual cleanup may be required."
-                  exit 1
-                fi
-                if terraform state list | grep -qxF "module.aigateway.azurerm_container_app.ca"; then
-                  echo "Removing stale state entry for ${CA_NAME}..."
-                  terraform state rm module.aigateway.azurerm_container_app.ca
-                fi
-              elif terraform state list | grep -qxF "module.aigateway.azurerm_container_app.ca"; then
-                echo "Container app ${CA_NAME} already in Terraform state, skipping import."
-              else
-                echo "Importing ${CA_NAME} into Terraform state..."
-                terraform state rm module.aigateway.azurerm_container_app.ca 2>/dev/null || true
-                terraform import module.aigateway.azurerm_container_app.ca "${CA_ID}"
-              fi
-            fi
-          else
-            echo "Container app ${CA_NAME} not found in Azure, no import needed."
-          fi
+        uses: ./.github/actions/import-container-app
+        with:
+          projname: ${{ env.TF_VAR_projname }}
+          env: ${{ env.TF_VAR_env }}
+          location_short: ${{ env.TF_VAR_location_short }}
+          subscription_id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+          terraform_working_directory: infra/env/uat
 
       - name: Terraform Plan
         run: |
@@ -480,8 +432,9 @@ jobs:
           AZURE_OPENAI_EMBEDDING_API_KEY: ${{ env.TF_VAR_azure_openai_embedding_api_key }}
           AZURE_OPENAI_EMBEDDING_DEPLOYMENT: ${{ env.TF_VAR_embedding_deployment }}
           AZURE_OPENAI_API_VERSION: ${{ env.TF_VAR_embeddings_api_version }}
+          AZURE_OPENAI_CHAT_DEPLOYMENT: "gpt-4.1"
+          AZURE_OPENAI_CHAT_API_VERSION: ${{ env.TF_VAR_codex_api_version }}
           AZURE_OPENAI_CODEX_MODEL: ${{ env.TF_VAR_codex_model }}
-          AZURE_OPENAI_CODEX_API_VERSION: ${{ env.TF_VAR_codex_api_version }}
         working-directory: ${{ github.workspace }}
         run: python3 scripts/integration_test.py
 
@@ -587,41 +540,13 @@ jobs:
             -backend-config="key=prod.terraform.tfstate"
 
       - name: Import existing Container App into Terraform state
-        shell: bash
-        run: |
-          set -euo pipefail
-          PROJNAME="${TF_VAR_projname}"
-          ENV="${TF_VAR_env}"
-          LOC="${TF_VAR_location_short}"
-          CA_NAME="pvc-${ENV}-${PROJNAME}-ca-${LOC}"
-          RG_NAME="pvc-${ENV}-${PROJNAME}-rg-${LOC}"
-          CA_ID="/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${RG_NAME}/providers/Microsoft.App/containerApps/${CA_NAME}"
-          if az containerapp show --ids "${CA_ID}" &>/dev/null; then
-            if ! PROV_STATE=$(az containerapp show --ids "${CA_ID}" --query "properties.provisioningState" -o tsv 2>/dev/null); then
-              echo "::warning::Could not determine provisioningState for ${CA_NAME}. Skipping import/delete."
-            else
-              echo "Container app ${CA_NAME} exists with provisioningState: ${PROV_STATE}"
-              if [ "${PROV_STATE}" = "Failed" ]; then
-                echo "Container app ${CA_NAME} is in Failed state. Deleting so Terraform can recreate it cleanly..."
-                if ! az containerapp delete --ids "${CA_ID}" --yes; then
-                  echo "::error::Failed to delete Container App ${CA_NAME}. Manual cleanup may be required."
-                  exit 1
-                fi
-                if terraform state list | grep -qxF "module.aigateway.azurerm_container_app.ca"; then
-                  echo "Removing stale state entry for ${CA_NAME}..."
-                  terraform state rm module.aigateway.azurerm_container_app.ca
-                fi
-              elif terraform state list | grep -qxF "module.aigateway.azurerm_container_app.ca"; then
-                echo "Container app ${CA_NAME} already in Terraform state, skipping import."
-              else
-                echo "Importing ${CA_NAME} into Terraform state..."
-                terraform state rm module.aigateway.azurerm_container_app.ca 2>/dev/null || true
-                terraform import module.aigateway.azurerm_container_app.ca "${CA_ID}"
-              fi
-            fi
-          else
-            echo "Container app ${CA_NAME} not found in Azure, no import needed."
-          fi
+        uses: ./.github/actions/import-container-app
+        with:
+          projname: ${{ env.TF_VAR_projname }}
+          env: ${{ env.TF_VAR_env }}
+          location_short: ${{ env.TF_VAR_location_short }}
+          subscription_id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+          terraform_working_directory: infra/env/prod
 
       - name: Terraform Plan
         run: |
@@ -665,8 +590,9 @@ jobs:
           AZURE_OPENAI_EMBEDDING_API_KEY: ${{ env.TF_VAR_azure_openai_embedding_api_key }}
           AZURE_OPENAI_EMBEDDING_DEPLOYMENT: ${{ env.TF_VAR_embedding_deployment }}
           AZURE_OPENAI_API_VERSION: ${{ env.TF_VAR_embeddings_api_version }}
+          AZURE_OPENAI_CHAT_DEPLOYMENT: "gpt-4.1"
+          AZURE_OPENAI_CHAT_API_VERSION: ${{ env.TF_VAR_codex_api_version }}
           AZURE_OPENAI_CODEX_MODEL: ${{ env.TF_VAR_codex_model }}
-          AZURE_OPENAI_CODEX_API_VERSION: ${{ env.TF_VAR_codex_api_version }}
         working-directory: ${{ github.workspace }}
         run: python3 scripts/integration_test.py
 

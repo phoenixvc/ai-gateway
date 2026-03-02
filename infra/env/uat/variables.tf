@@ -115,14 +115,27 @@ variable "enable_redis_cache" {
   default = false
 }
 
+variable "redis_cache_sku" {
+  type    = string
+  default = "Basic"
+}
+
 variable "redis_cache_capacity" {
   type    = number
   default = 0
+  validation {
+    condition     = contains([0, 1, 2], var.redis_cache_capacity)
+    error_message = "redis_cache_capacity must be one of: 0 (C0), 1 (C1), or 2 (C2)."
+  }
 }
 
 variable "max_budget" {
   type    = number
   default = 0
+  validation {
+    condition     = var.max_budget >= 0
+    error_message = "max_budget must be non-negative."
+  }
 }
 
 variable "budget_duration" {
@@ -133,11 +146,19 @@ variable "budget_duration" {
 variable "rpm_limit" {
   type    = number
   default = 0
+  validation {
+    condition     = var.rpm_limit >= 0
+    error_message = "rpm_limit must be non-negative."
+  }
 }
 
 variable "tpm_limit" {
   type    = number
   default = 0
+  validation {
+    condition     = var.tpm_limit >= 0
+    error_message = "tpm_limit must be non-negative."
+  }
 }
 
 variable "dashboard_container_image" {
