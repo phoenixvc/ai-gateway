@@ -101,7 +101,7 @@ variable "gateway_key" {
 # Upstream Azure OpenAI
 variable "azure_openai_endpoint" {
   type        = string
-  description = "Azure OpenAI endpoint host, e.g. https://mys-shared-ai-swc.cognitiveservices.azure.com"
+  description = "Azure OpenAI endpoint host, e.g. https://mys-shared-ai-san.cognitiveservices.azure.com"
 }
 
 variable "azure_openai_api_key" {
@@ -422,7 +422,7 @@ location        = "southafricanorth"
 location_short  = "san"
 
 # Your Azure OpenAI endpoint host
-azure_openai_endpoint = "https://mys-shared-ai-swc.cognitiveservices.azure.com"
+azure_openai_endpoint = "https://mys-shared-ai-san.cognitiveservices.azure.com"
 
 # Secrets should be injected via CI in real usage; tfvars shown for local testing only.
 # azure_openai_api_key = "..."
@@ -458,7 +458,7 @@ Example (add to your workflow steps before terraform commands):
 env:
   TF_VAR_azure_openai_api_key: ${{ secrets.AZURE_OPENAI_API_KEY }}
   TF_VAR_gateway_key: ${{ secrets.AIGATEWAY_KEY }}
-  TF_VAR_azure_openai_endpoint: "https://mys-shared-ai-swc.cognitiveservices.azure.com"
+  TF_VAR_azure_openai_endpoint: "https://mys-shared-ai-san.cognitiveservices.azure.com"
   TF_VAR_env: ${{ matrix.env }}
   TF_VAR_projname: "aigateway"
   TF_VAR_location: "southafricanorth"
