@@ -64,7 +64,7 @@ variable "gateway_key" {
 # Upstream Azure OpenAI
 variable "azure_openai_endpoint" {
   type        = string
-  description = "Azure OpenAI endpoint host, e.g. https://mys-shared-ai-san.cognitiveservices.azure.com"
+  description = "Azure OpenAI endpoint host, e.g. https://mys-shared-ai-swc.cognitiveservices.azure.com"
 }
 
 variable "azure_openai_api_key" {

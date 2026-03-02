@@ -10,7 +10,7 @@ Required env vars:
 Optional env vars:
   AZURE_OPENAI_EMBEDDING_DEPLOYMENT - Embedding deployment name (default: text-embedding-3-large)
   AZURE_OPENAI_API_VERSION          - API version (default: 2024-02-01)
-  AZURE_OPENAI_CHAT_DEPLOYMENT      - Chat completions deployment (default: gpt-5.3-codex)
+  AZURE_OPENAI_CHAT_DEPLOYMENT      - Chat completions deployment (default: gpt-4o-mini)
   AZURE_OPENAI_CODEX_MODEL          - Codex/responses model (default: gpt-5.3-codex)
   AZURE_OPENAI_CODEX_API_VERSION    - Codex API version (default: 2025-04-01-preview)
   GATEWAY_URL                       - LiteLLM gateway URL (skip gateway tests if unset)
@@ -191,7 +191,7 @@ def main() -> int:
 
     embedding_deployment = os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT", "text-embedding-3-large")
     embedding_api_version = os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-01")
-    chat_deployment = os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT", "gpt-5.3-codex")
+    chat_deployment = os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT", "gpt-4o-mini")
     codex_model = os.getenv("AZURE_OPENAI_CODEX_MODEL", "gpt-5.3-codex")
     codex_api_version = os.getenv("AZURE_OPENAI_CODEX_API_VERSION", "2025-04-01-preview")
     gateway_url = os.getenv("GATEWAY_URL", "").rstrip("/")
