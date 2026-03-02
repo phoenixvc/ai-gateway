@@ -18,8 +18,8 @@ server {
     # request time instead of startup time, so the container starts even when
     # the gateway hostname is temporarily unresolvable (e.g. during first deploy).
     location /api/ {
-        # Public resolvers (fallback order); Azure internal DNS also works in ACA.
-        resolver 1.1.1.1 8.8.8.8 valid=30s ipv6=off;
+        # Prefer Azure's internal DNS (reliable inside ACA); fall back to public resolvers.
+        resolver 168.63.129.16 1.1.1.1 8.8.8.8 valid=30s ipv6=off;
         set $gateway_upstream ${GATEWAY_URL};
 
         # Strip the /api prefix, then forward to the gateway.

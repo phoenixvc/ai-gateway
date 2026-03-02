@@ -78,5 +78,6 @@ output "gateway_url" {
 }
 
 output "dashboard_url" {
+  description = "Public HTTPS URL of the gateway dashboard Container App."
   value = module.dashboard.dashboard_url
 }

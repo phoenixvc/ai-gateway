@@ -53,4 +53,8 @@ variable "grafana_url" {
   type        = string
   description = "Grafana Cloud stack URL for the dashboard link button (leave empty to hide the button)"
   default     = ""
+  validation {
+    condition     = var.grafana_url == "" || can(regex("^https://", var.grafana_url))
+    error_message = "grafana_url must be empty or start with https://."
+  }
 }

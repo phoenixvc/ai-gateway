@@ -143,6 +143,16 @@ const GATEWAY_URL = "${GATEWAY_URL}";
 const GRAFANA_URL  = "${GRAFANA_URL}";
 const ENV_NAME     = "${ENV_NAME}";
 
+// ── HTML escaping (prevent XSS when API data is rendered into the DOM) ───────
+function escHtml(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 // ── History buffers for rolling charts (max 20 data points) ─────────────────
 const MAX_POINTS = 20;
 const reqHistory  = { labels: [], datasets: [{ label: "Requests", data: [], borderColor: "#5b8dee", backgroundColor: "rgba(91,141,238,.15)", tension: .3, fill: true, pointRadius: 3 }] };
@@ -244,11 +254,18 @@ const chartDefaults = {
 
 let reqChart, tokChart;
 function initCharts() {
+  if (typeof Chart === "undefined") {
+    document.querySelectorAll(".chart-card").forEach(c => {
+      c.innerHTML = '<p style="color:var(--muted);font-size:12px;text-align:center;padding:20px">Charts unavailable (CDN blocked)</p>';
+    });
+    return;
+  }
   reqChart = new Chart(document.getElementById("req-chart"), { ...chartDefaults, data: reqHistory });
   tokChart = new Chart(document.getElementById("tok-chart"), { ...chartDefaults, data: tokHistory });
 }
 
 function pushPoint(history, chart, label, value) {
+  if (!chart) return;
   history.labels.push(label);
   history.datasets[0].data.push(value);
   if (history.labels.length > MAX_POINTS) {
@@ -341,7 +358,7 @@ async function fetchLogs() {
         <tbody>${recent.map(renderLogRow).join("")}</tbody>
       </table>`;
   } catch (e) {
-    container.innerHTML = `<div class="empty">Could not load logs: ${e.message}</div>`;
+    container.innerHTML = `<div class="empty">Could not load logs: ${escHtml(e.message)}</div>`;
   }
 }
 
@@ -356,10 +373,10 @@ function renderLogRow(r) {
   const user  = r.user || r.metadata?.user || "—";
   const tsFmt = ts ? new Date(ts).toLocaleTimeString() : "—";
   return `<tr>
-    <td>${tsFmt}</td><td>${model}</td><td>${tIn}</td><td>${tOut}</td>
-    <td>${lat}</td>
-    <td class="${ok ? "status-ok" : "status-err"}">${status}</td>
-    <td>${user}</td>
+    <td>${escHtml(tsFmt)}</td><td>${escHtml(model)}</td><td>${escHtml(tIn)}</td><td>${escHtml(tOut)}</td>
+    <td>${escHtml(lat)}</td>
+    <td class="${ok ? "status-ok" : "status-err"}">${escHtml(status)}</td>
+    <td>${escHtml(user)}</td>
   </tr>`;
 }
 
