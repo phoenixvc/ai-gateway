@@ -313,7 +313,7 @@ jobs:
           codex_model: ${{ env.TF_VAR_codex_model }}
           aoai_endpoint: ${{ env.TF_VAR_azure_openai_endpoint }}
           aoai_api_key: ${{ env.TF_VAR_azure_openai_api_key }}
-          max_attempts: "5"
+          max_attempts: "3"
           retry_sleep: "10"
 
   deploy-uat:
@@ -494,7 +494,7 @@ jobs:
           codex_model: ${{ env.TF_VAR_codex_model }}
           aoai_endpoint: ${{ env.TF_VAR_azure_openai_endpoint }}
           aoai_api_key: ${{ env.TF_VAR_azure_openai_api_key }}
-          max_attempts: "5"
+          max_attempts: "3"
           retry_sleep: "10"
 
   deploy-prod:
@@ -679,7 +679,7 @@ jobs:
           codex_model: ${{ env.TF_VAR_codex_model }}
           aoai_endpoint: ${{ env.TF_VAR_azure_openai_endpoint }}
           aoai_api_key: ${{ env.TF_VAR_azure_openai_api_key }}
-          max_attempts: "5"
+          max_attempts: "3"
           retry_sleep: "15" # prod: longer cold-start; allow more time between retries
-          models_wait_attempts: "5" # prod: wait longer for LiteLLM to register healthy deployments
+          models_wait_attempts: "3" # prod: wait longer for LiteLLM to register healthy deployments
           models_wait_sleep: "30"
