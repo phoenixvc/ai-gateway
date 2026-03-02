@@ -73,6 +73,23 @@ variable "azure_openai_api_key" {
   sensitive   = true
 }
 
+variable "azure_openai_embedding_endpoint" {
+  type        = string
+  description = "Azure OpenAI endpoint for embedding models. Defaults to azure_openai_endpoint if empty."
+  default     = ""
+  validation {
+    condition     = var.azure_openai_embedding_endpoint == "" || can(regex("^https://", var.azure_openai_embedding_endpoint))
+    error_message = "azure_openai_embedding_endpoint must be empty or start with https://."
+  }
+}
+
+variable "azure_openai_embedding_api_key" {
+  type        = string
+  description = "Azure OpenAI API key for embedding endpoint. Defaults to azure_openai_api_key if empty."
+  sensitive   = true
+  default     = ""
+}
+
 variable "codex_model" {
   type        = string
   description = "Codex deployment/model name for responses"
@@ -94,18 +111,18 @@ variable "embedding_deployment" {
 variable "embeddings_api_version" {
   type        = string
   description = "Embeddings API version"
-  default     = "2023-05-15"
+  default     = "2024-02-01"
 }
 
 # Optional scaling
 variable "min_replicas" {
-  type        = number
-  default     = 0
+  type    = number
+  default = 0
 }
 
 variable "max_replicas" {
-  type        = number
-  default     = 3
+  type    = number
+  default = 3
 }
 
 variable "secrets_expiration_date" {
@@ -121,4 +138,66 @@ variable "key_vault_network_default_action" {
     condition     = contains(["Allow", "Deny"], var.key_vault_network_default_action)
     error_message = "Must be Allow or Deny."
   }
+}
+
+# Langfuse LLM observability (optional — leave empty to disable)
+variable "langfuse_public_key" {
+  type        = string
+  description = "Langfuse public key. Leave empty to disable Langfuse tracing."
+  default     = ""
+}
+
+variable "langfuse_secret_key" {
+  type        = string
+  description = "Langfuse secret key. Leave empty to disable Langfuse tracing."
+  default     = ""
+  sensitive   = true
+}
+
+variable "langfuse_host" {
+  type        = string
+  description = "Langfuse host URL for self-hosted deployments (e.g. https://langfuse.example.com). Leave empty for Langfuse Cloud."
+  default     = ""
+}
+
+# Redis caching (optional — set to true to provision Azure Cache for Redis)
+variable "enable_redis_cache" {
+  type        = bool
+  description = "Provision Azure Cache for Redis and configure LiteLLM to cache identical requests, reducing Azure OpenAI token spend."
+  default     = false
+}
+
+variable "redis_cache_capacity" {
+  type        = number
+  description = "Azure Cache for Redis capacity (SKU unit). 0 = C0 (250 MB, dev/test); 1 = C1 (1 GB); 2 = C2 (6 GB). Increase for production workloads with higher request volumes."
+  default     = 0
+  validation {
+    condition     = contains([0, 1, 2], var.redis_cache_capacity)
+    error_message = "redis_cache_capacity must be one of: 0 (C0), 1 (C1), or 2 (C2) for this module."
+  }
+}
+
+# Budget and rate limiting (0 / empty = disabled)
+variable "max_budget" {
+  type        = number
+  description = "Global maximum spend in USD before the gateway starts rejecting requests (0 = no limit)."
+  default     = 0
+}
+
+variable "budget_duration" {
+  type        = string
+  description = "How often the budget counter resets, e.g. '1d', '7d', '30d'. Empty = never reset."
+  default     = ""
+}
+
+variable "rpm_limit" {
+  type        = number
+  description = "Global requests-per-minute cap across all API keys (0 = no limit)."
+  default     = 0
+}
+
+variable "tpm_limit" {
+  type        = number
+  description = "Global tokens-per-minute cap across all API keys (0 = no limit)."
+  default     = 0
 }

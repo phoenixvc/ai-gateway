@@ -1,0 +1,12 @@
+# Copy this file to terraform.tfvars and fill in the values.
+# NEVER commit terraform.tfvars (contains secrets) to source control.
+# infra/grafana/terraform.tfvars is already excluded via .gitignore.
+
+stack_name  = "PVC AI Gateway"
+stack_slug  = "pvc-aigateway"
+region_slug = "prod-us-central-0"
+
+# Generate at https://grafana.com/profile/api-keys
+# Required scopes: stacks:read, stacks:write,
+#                  stack-service-accounts:read, stack-service-accounts:write
+# grafana_cloud_access_policy_token = "<your-cloud-access-policy-token>"

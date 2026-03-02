@@ -24,6 +24,8 @@ Add these as **Environment secrets** in GitHub:
 - [ ] `TF_BACKEND_CONTAINER`
 - [ ] `AZURE_OPENAI_ENDPOINT`
 - [ ] `AZURE_OPENAI_API_KEY`
+- [ ] `AZURE_OPENAI_EMBEDDING_ENDPOINT` *(optional — set only if embeddings use a different Azure OpenAI resource)*
+- [ ] `AZURE_OPENAI_EMBEDDING_API_KEY` *(optional — set only if embeddings use a different API key)*
 - [ ] `AIGATEWAY_KEY`
 
 ## Copy/paste template
@@ -39,6 +41,8 @@ TF_BACKEND_SA=<storage-account-name>
 TF_BACKEND_CONTAINER=tfstate
 AZURE_OPENAI_ENDPOINT=https://<your-resource>.cognitiveservices.azure.com
 AZURE_OPENAI_API_KEY=<key>
+AZURE_OPENAI_EMBEDDING_ENDPOINT=                # optional: only if embeddings are on a different resource
+AZURE_OPENAI_EMBEDDING_API_KEY=                 # optional: only if embeddings use a different key
 AIGATEWAY_KEY=<gateway-key>
 ```
 
@@ -46,6 +50,7 @@ AIGATEWAY_KEY=<gateway-key>
 
 - [ ] `AZURE_OPENAI_ENDPOINT` and `AZURE_OPENAI_API_KEY` are from the **same** Azure OpenAI resource.
 - [ ] `AZURE_OPENAI_ENDPOINT` is base URL only (no `/openai/...` path).
+- [ ] If embeddings live on a different Azure OpenAI resource, set `AZURE_OPENAI_EMBEDDING_ENDPOINT` (and optionally `AZURE_OPENAI_EMBEDDING_API_KEY`). Otherwise leave them blank to use the main endpoint.
 - [ ] For `prod`, `AZURE_OPENAI_ENDPOINT` host is `mys-prod-ai-san.cognitiveservices.azure.com`.
 - [ ] `AIGATEWAY_KEY` matches the key expected by the deployed gateway.
 - [ ] OIDC federated credentials exist for each environment subject:
