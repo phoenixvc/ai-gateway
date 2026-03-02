@@ -25,6 +25,7 @@ resource "grafana_cloud_stack_service_account_token" "terraform" {
   stack_slug         = grafana_cloud_stack.this.slug
   name               = "terraform-token"
   service_account_id = grafana_cloud_stack_service_account.terraform.id
+  seconds_to_live    = 14400
 }
 
 # Service account used by GitHub Actions to deploy dashboards (Editor).
@@ -38,4 +39,5 @@ resource "grafana_cloud_stack_service_account_token" "github_actions" {
   stack_slug         = grafana_cloud_stack.this.slug
   name               = "github-actions-token"
   service_account_id = grafana_cloud_stack_service_account.github_actions.id
+  seconds_to_live    = 14400
 }

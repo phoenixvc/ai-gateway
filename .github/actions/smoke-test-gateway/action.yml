@@ -82,6 +82,15 @@ runs:
         MODELS_CODE=0
         AOAI_DEPLOYMENTS_CODE=0
 
+        sanitize_http_code() {
+          local val="$1"
+          if [ -z "${val}" ] || [[ ! "${val}" =~ ^[0-9]+$ ]]; then
+            echo "0"
+          else
+            echo "${val}"
+          fi
+        }
+
         fetch_models() {
           local models_code=0
           for attempt in $(seq 1 "${SMOKE_MAX_ATTEMPTS}"); do
@@ -89,10 +98,7 @@ runs:
               -X GET "${GW}/v1/models" \
               -H "Authorization: ${AUTH_HEADER_VALUE}" \
               > /tmp/models.code 2>/dev/null || true
-            models_code=$(cat /tmp/models.code 2>/dev/null || echo "")
-            if [ -z "$models_code" ] || [[ ! "$models_code" =~ ^[0-9]+$ ]]; then
-              models_code=0
-            fi
+            models_code=$(sanitize_http_code "$(cat /tmp/models.code 2>/dev/null || echo "")")
             if [ "$models_code" -ge 200 ] && [ "$models_code" -lt 300 ]; then
               MODELS_CODE="$models_code"
               return 0
@@ -110,10 +116,7 @@ runs:
             -X GET "${GW}/v1/models" \
             -H "Authorization: ${AUTH_HEADER_VALUE}" \
             > /tmp/models.code 2>/dev/null || true
-          models_code=$(cat /tmp/models.code 2>/dev/null || echo "")
-          if [ -z "$models_code" ] || [[ ! "$models_code" =~ ^[0-9]+$ ]]; then
-            models_code=0
-          fi
+          models_code=$(sanitize_http_code "$(cat /tmp/models.code 2>/dev/null || echo "")")
           if [ "$models_code" -ge 200 ] && [ "$models_code" -lt 300 ]; then
             MODELS_CODE="$models_code"
             return 0
@@ -139,8 +142,7 @@ runs:
             -H "api-key: ${AOAI_KEY}" \
             > /tmp/aoai_deployments.code 2>/dev/null || true
 
-          AOAI_DEPLOYMENTS_CODE=$(cat /tmp/aoai_deployments.code 2>/dev/null || echo "")
-          [ -z "$AOAI_DEPLOYMENTS_CODE" ] || [[ ! "$AOAI_DEPLOYMENTS_CODE" =~ ^[0-9]+$ ]] && AOAI_DEPLOYMENTS_CODE=0
+          AOAI_DEPLOYMENTS_CODE=$(sanitize_http_code "$(cat /tmp/aoai_deployments.code 2>/dev/null || echo "")")
           if [ "$AOAI_DEPLOYMENTS_CODE" -lt 200 ] || [ "$AOAI_DEPLOYMENTS_CODE" -ge 300 ]; then
             echo "AOAI deployment discovery returned HTTP ${AOAI_DEPLOYMENTS_CODE}; skipping deployment-based model fallback."
             return 0
@@ -179,10 +181,7 @@ runs:
             -H "Authorization: ${AUTH_HEADER_VALUE}" \
             -d "{\"model\":\"${candidate}\",\"input\":\"smoke test\"}" \
             > /tmp/emb_probe.code 2>/dev/null || true
-          code=$(cat /tmp/emb_probe.code 2>/dev/null || echo "")
-          if [ -z "$code" ] || [[ ! "$code" =~ ^[0-9]+$ ]]; then
-            code=0
-          fi
+          code=$(sanitize_http_code "$(cat /tmp/emb_probe.code 2>/dev/null || echo "")")
           EMB_PROBE_LAST_CODE="${code}"
           if [ "$code" -ge 200 ] && [ "$code" -lt 300 ]; then
             return 0
@@ -336,8 +335,7 @@ runs:
               -H "Authorization: ${AUTH_HEADER_VALUE}" \
               > /tmp/litellm_health.code 2>/dev/null || true
             local health_code
-            health_code=$(cat /tmp/litellm_health.code 2>/dev/null || echo "")
-            if [ -z "$health_code" ] || ! [[ "$health_code" =~ ^[0-9]+$ ]]; then health_code=0; fi
+            health_code=$(sanitize_http_code "$(cat /tmp/litellm_health.code 2>/dev/null || echo "")")
             echo "  /health HTTP ${health_code}"
             if [ -s /tmp/litellm_health.json ]; then
               head -c 1200 /tmp/litellm_health.json || true  # first 1200 chars, matching other diagnostics
@@ -393,8 +391,7 @@ runs:
             -H "Authorization: ${AUTH_HEADER_VALUE}" \
             -d "{\"model\":\"${EMB_EFFECTIVE}\",\"input\":\"smoke test\"}" \
             > /tmp/emb.code 2>/dev/null || true
-          EMB_CODE=$(cat /tmp/emb.code 2>/dev/null || echo "")
-          [ -z "$EMB_CODE" ] || [[ ! "$EMB_CODE" =~ ^[0-9]+$ ]] && EMB_CODE=0
+          EMB_CODE=$(sanitize_http_code "$(cat /tmp/emb.code 2>/dev/null || echo "")")
           if [ "$EMB_CODE" -ge 200 ] && [ "$EMB_CODE" -lt 300 ]; then
             break
           fi
@@ -422,8 +419,7 @@ runs:
             -H "Authorization: ${AUTH_HEADER_VALUE}" \
             -d "{\"model\":\"${CODEX_EFFECTIVE}\",\"input\":\"Respond with exactly: OK\"}" \
             > /tmp/resp.code 2>/dev/null || true
-          RESP_CODE=$(cat /tmp/resp.code 2>/dev/null || echo "")
-          [ -z "$RESP_CODE" ] || [[ ! "$RESP_CODE" =~ ^[0-9]+$ ]] && RESP_CODE=0
+          RESP_CODE=$(sanitize_http_code "$(cat /tmp/resp.code 2>/dev/null || echo "")")
           if [ "$RESP_CODE" -ge 200 ] && [ "$RESP_CODE" -lt 300 ]; then
             break
           fi

@@ -10,6 +10,7 @@ Required env vars:
 Optional env vars:
   AZURE_OPENAI_EMBEDDING_DEPLOYMENT - Embedding deployment name (default: text-embedding-3-large)
   AZURE_OPENAI_API_VERSION          - API version (default: 2024-02-01)
+  AZURE_OPENAI_CHAT_DEPLOYMENT      - Chat completions deployment (default: gpt-4o-mini)
   AZURE_OPENAI_CODEX_MODEL          - Codex/responses model (default: gpt-5.3-codex)
   AZURE_OPENAI_CODEX_API_VERSION    - Codex API version (default: 2025-04-01-preview)
   GATEWAY_URL                       - LiteLLM gateway URL (skip gateway tests if unset)
@@ -54,11 +55,12 @@ def http_request(method: str, url: str, headers: dict, payload: dict | None = No
         return 0, {"error": f"Unsupported URL scheme '{parsed.scheme}' in {url}"}
 
     body = None
+    req_headers = dict(headers)
     if payload is not None:
         body = json.dumps(payload).encode("utf-8")
-        headers["Content-Type"] = "application/json"
+        req_headers["Content-Type"] = "application/json"
 
-    req = request.Request(url=url, method=method, data=body, headers=headers)
+    req = request.Request(url=url, method=method, data=body, headers=req_headers)
     try:
         with request.urlopen(req, timeout=30) as resp:
             text = resp.read().decode("utf-8", errors="replace")
@@ -95,9 +97,9 @@ class TestResult:
         self.detail = detail
 
 
-def test_aoai_deployments(endpoint: str, api_key: str) -> TestResult:
+def test_aoai_deployments(endpoint: str, api_key: str, api_version: str) -> TestResult:
     """List Azure OpenAI deployments."""
-    url = f"{endpoint}/openai/deployments?api-version=2024-02-01"
+    url = f"{endpoint}/openai/deployments?api-version={api_version}"
     code, data = http_request("GET", url, {"api-key": api_key})
     if 200 <= code < 300 and isinstance(data, dict):
         items = data.get("data") or data.get("value") or []
@@ -189,6 +191,7 @@ def main() -> int:
 
     embedding_deployment = os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT", "text-embedding-3-large")
     embedding_api_version = os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-01")
+    chat_deployment = os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT", "gpt-4o-mini")
     codex_model = os.getenv("AZURE_OPENAI_CODEX_MODEL", "gpt-5.3-codex")
     codex_api_version = os.getenv("AZURE_OPENAI_CODEX_API_VERSION", "2025-04-01-preview")
     gateway_url = os.getenv("GATEWAY_URL", "").rstrip("/")
@@ -212,9 +215,10 @@ def main() -> int:
         emb_key_fp = hashlib.sha256(emb_api_key.encode()).hexdigest()[:12]
         print(f"Embedding API key:          sha256:{emb_key_fp}")
     else:
-        print(f"Embedding endpoint:         (same as main)")
+        print("Embedding endpoint:         (same as main)")
     print(f"Embedding deployment:       {embedding_deployment}")
     print(f"Embedding API version:      {embedding_api_version}")
+    print(f"Chat deployment:            {chat_deployment}")
     print(f"Codex model:                {codex_model}")
     print(f"Codex API version:          {codex_api_version}")
     print(f"Gateway URL:                {gateway_url or '<not set — skipping gateway tests>'}")
@@ -225,7 +229,7 @@ def main() -> int:
     # --- Azure OpenAI backend tests ---
     print("--- Azure OpenAI Backend Tests ---")
 
-    r = test_aoai_deployments(endpoint, api_key)
+    r = test_aoai_deployments(endpoint, api_key, embedding_api_version)
     results.append(r)
     print(f"{'PASS' if r.passed else 'FAIL'}: {r.name} — {r.detail}")
 
@@ -233,7 +237,7 @@ def main() -> int:
     results.append(r)
     print(f"{'PASS' if r.passed else 'FAIL'}: {r.name} — {r.detail}")
 
-    r = test_aoai_chat(endpoint, api_key, codex_model, codex_api_version)
+    r = test_aoai_chat(endpoint, api_key, chat_deployment, embedding_api_version)
     results.append(r)
     print(f"{'PASS' if r.passed else 'FAIL'}: {r.name} — {r.detail}")
 
@@ -273,7 +277,7 @@ def main() -> int:
         print("Troubleshooting:")
         print("  1. Verify AZURE_OPENAI_API_KEY is valid for the endpoint")
         print(f"  2. Verify deployment '{embedding_deployment}' exists at {emb_endpoint}")
-        print(f"  3. Verify deployment '{codex_model}' exists at {endpoint}")
+        print(f"  3. Verify deployment '{chat_deployment}' exists at {endpoint}")
         print("  4. Check Azure Portal > your AOAI resource > Model deployments")
         if emb_endpoint != endpoint:
             print(f"  5. Embedding uses a SEPARATE endpoint: {emb_endpoint}")
