@@ -172,8 +172,8 @@ variable "redis_cache_sku" {
   description = "Azure Cache for Redis SKU. Use 'Standard' for production (replication + SLA) or 'Basic' for dev/test."
   default     = "Basic"
   validation {
-    condition     = contains(["Basic", "Standard", "Premium"], var.redis_cache_sku)
-    error_message = "redis_cache_sku must be one of: Basic, Standard, Premium."
+    condition     = contains(["Basic", "Standard"], var.redis_cache_sku)
+    error_message = "redis_cache_sku must be one of: Basic, Standard."
   }
 }
 
