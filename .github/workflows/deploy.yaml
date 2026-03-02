@@ -267,7 +267,8 @@ jobs:
           AZURE_OPENAI_EMBEDDING_API_KEY: ${{ env.TF_VAR_azure_openai_embedding_api_key }}
           AZURE_OPENAI_EMBEDDING_DEPLOYMENT: ${{ env.TF_VAR_embedding_deployment }}
           AZURE_OPENAI_API_VERSION: ${{ env.TF_VAR_embeddings_api_version }}
-          AZURE_OPENAI_CHAT_DEPLOYMENT: ${{ env.TF_VAR_codex_model }}
+          AZURE_OPENAI_CHAT_DEPLOYMENT: "gpt-4.1"
+          AZURE_OPENAI_CHAT_API_VERSION: ${{ env.TF_VAR_codex_api_version }}
           AZURE_OPENAI_CODEX_MODEL: ${{ env.TF_VAR_codex_model }}
         working-directory: ${{ github.workspace }}
         run: python3 scripts/integration_test.py
@@ -420,7 +421,8 @@ jobs:
           AZURE_OPENAI_EMBEDDING_API_KEY: ${{ env.TF_VAR_azure_openai_embedding_api_key }}
           AZURE_OPENAI_EMBEDDING_DEPLOYMENT: ${{ env.TF_VAR_embedding_deployment }}
           AZURE_OPENAI_API_VERSION: ${{ env.TF_VAR_embeddings_api_version }}
-          AZURE_OPENAI_CHAT_DEPLOYMENT: ${{ env.TF_VAR_codex_model }}
+          AZURE_OPENAI_CHAT_DEPLOYMENT: "gpt-4.1"
+          AZURE_OPENAI_CHAT_API_VERSION: ${{ env.TF_VAR_codex_api_version }}
           AZURE_OPENAI_CODEX_MODEL: ${{ env.TF_VAR_codex_model }}
         working-directory: ${{ github.workspace }}
         run: python3 scripts/integration_test.py
@@ -534,7 +536,6 @@ jobs:
           location_short: ${{ env.TF_VAR_location_short }}
           subscription_id: ${{ env.AZURE_SUBSCRIPTION_ID }}
           terraform_working_directory: infra/env/prod
-          allow_auto_delete: "true"
 
       - name: Terraform Plan
         run: |
@@ -578,7 +579,8 @@ jobs:
           AZURE_OPENAI_EMBEDDING_API_KEY: ${{ env.TF_VAR_azure_openai_embedding_api_key }}
           AZURE_OPENAI_EMBEDDING_DEPLOYMENT: ${{ env.TF_VAR_embedding_deployment }}
           AZURE_OPENAI_API_VERSION: ${{ env.TF_VAR_embeddings_api_version }}
-          AZURE_OPENAI_CHAT_DEPLOYMENT: ${{ env.TF_VAR_codex_model }}
+          AZURE_OPENAI_CHAT_DEPLOYMENT: "gpt-4.1"
+          AZURE_OPENAI_CHAT_API_VERSION: ${{ env.TF_VAR_codex_api_version }}
           AZURE_OPENAI_CODEX_MODEL: ${{ env.TF_VAR_codex_model }}
         working-directory: ${{ github.workspace }}
         run: python3 scripts/integration_test.py

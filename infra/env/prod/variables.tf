@@ -130,8 +130,8 @@ variable "redis_cache_capacity" {
   description = "Azure Cache for Redis capacity (SKU unit). 0 = C0 (250 MB, dev/test); 1 = C1 (1 GB); 2 = C2 (6 GB)."
   default     = 0
   validation {
-    condition     = var.redis_cache_capacity >= 0
-    error_message = "redis_cache_capacity must be non-negative."
+    condition     = contains([0, 1, 2], var.redis_cache_capacity)
+    error_message = "redis_cache_capacity must be one of: 0 (C0), 1 (C1), or 2 (C2)."
   }
 }
 

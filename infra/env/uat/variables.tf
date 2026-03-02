@@ -124,8 +124,8 @@ variable "redis_cache_capacity" {
   type    = number
   default = 0
   validation {
-    condition     = var.redis_cache_capacity >= 0
-    error_message = "redis_cache_capacity must be non-negative."
+    condition     = contains([0, 1, 2], var.redis_cache_capacity)
+    error_message = "redis_cache_capacity must be one of: 0 (C0), 1 (C1), or 2 (C2)."
   }
 }
 

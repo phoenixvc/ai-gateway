@@ -10,7 +10,8 @@ Required env vars:
 Optional env vars:
   AZURE_OPENAI_EMBEDDING_DEPLOYMENT - Embedding deployment name (default: text-embedding-3-large)
   AZURE_OPENAI_API_VERSION          - API version (default: 2024-02-01)
-  AZURE_OPENAI_CHAT_DEPLOYMENT      - Chat completions deployment (falls back to AZURE_OPENAI_CODEX_MODEL)
+  AZURE_OPENAI_CHAT_DEPLOYMENT      - Chat completions deployment (default: gpt-4.1)
+  AZURE_OPENAI_CHAT_API_VERSION     - API version for chat completions (defaults to AZURE_OPENAI_API_VERSION)
   AZURE_OPENAI_CODEX_MODEL          - Codex/responses model (default: gpt-5.3-codex)
   GATEWAY_URL                       - LiteLLM gateway URL (skip gateway tests if unset)
   AIGATEWAY_KEY                     - Gateway auth key (required if GATEWAY_URL is set)
@@ -191,7 +192,8 @@ def main() -> int:
     embedding_deployment = os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT", "text-embedding-3-large")
     embedding_api_version = os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-01")
     codex_model = os.getenv("AZURE_OPENAI_CODEX_MODEL", "gpt-5.3-codex")
-    chat_deployment = os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT", "") or codex_model
+    chat_deployment = os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT", "gpt-4.1")
+    chat_api_version = os.getenv("AZURE_OPENAI_CHAT_API_VERSION", "") or embedding_api_version
     gateway_url = os.getenv("GATEWAY_URL", "").rstrip("/")
     gateway_key = os.getenv("AIGATEWAY_KEY", "")
 
@@ -217,6 +219,7 @@ def main() -> int:
     print(f"Embedding deployment:       {embedding_deployment}")
     print(f"Embedding API version:      {embedding_api_version}")
     print(f"Chat deployment:            {chat_deployment}")
+    print(f"Chat API version:           {chat_api_version}")
     print(f"Codex model:                {codex_model}")
     print(f"Gateway URL:                {gateway_url or '<not set — skipping gateway tests>'}")
     print()
@@ -238,7 +241,7 @@ def main() -> int:
     results.append(r)
     print(f"{'PASS' if r.passed else 'FAIL'}: {r.name} — {r.detail}")
 
-    r = test_aoai_chat(endpoint, api_key, chat_deployment, embedding_api_version)
+    r = test_aoai_chat(endpoint, api_key, chat_deployment, chat_api_version)
     results.append(r)
     print(f"{'PASS' if r.passed else 'FAIL'}: {r.name} — {r.detail}")
 
