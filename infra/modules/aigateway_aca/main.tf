@@ -70,6 +70,7 @@ locals {
   #   | where ContainerName_s == "litellm"
   #   | project TimeGenerated, Log_s
   litellm_settings:
+    num_retries: 2
     json_logs: true
     # Prometheus /metrics: token usage, latency and error rate at <gateway>/metrics
     success_callback:

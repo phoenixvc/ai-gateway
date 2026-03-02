@@ -21,3 +21,5 @@ tags = {
   project = "aigateway"
   env     = "dev"
 }
+
+enable_redis_cache = true
