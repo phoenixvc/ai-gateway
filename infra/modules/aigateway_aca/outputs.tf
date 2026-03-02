@@ -13,3 +13,8 @@ output "gateway_url" {
 output "key_vault_name" {
   value = azurerm_key_vault.kv.name
 }
+
+output "redis_hostname" {
+  value       = try(azurerm_redis_cache.cache[0].hostname, null)
+  description = "Azure Cache for Redis hostname (null when enable_redis_cache = false)."
+}

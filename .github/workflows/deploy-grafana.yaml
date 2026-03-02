@@ -1,0 +1,185 @@
+name: Deploy Grafana Cloud Stack
+
+# Provisions the Grafana Cloud stack (and service accounts) via Terraform and
+# then imports the LiteLLM dashboards.
+#
+# Required GitHub Actions secrets (repository or environment level):
+#   AZURE_CLIENT_ID            – Federated credential client ID for OIDC
+#   AZURE_TENANT_ID            – Azure tenant ID
+#   AZURE_SUBSCRIPTION_ID      – Azure subscription ID
+#   TF_BACKEND_RG              – Resource group for the Terraform state SA
+#   TF_BACKEND_SA              – Storage account name for Terraform state
+#   TF_BACKEND_CONTAINER       – Blob container name for Terraform state
+#   GRAFANA_CLOUD_ACCESS_POLICY_TOKEN
+#                              – Grafana Cloud API token with scopes:
+#                                stacks:read, stacks:write,
+#                                stack-service-accounts:write
+#                                (stack-service-accounts:read does not exist
+#                                 as a grantable scope in the Grafana Cloud
+#                                 policy UI; write is sufficient)
+#
+# Optional GitHub Actions variables (repository level):
+#   GRAFANA_STACK_NAME         – Display name (default: "PVC AI Gateway")
+#   GRAFANA_STACK_SLUG         – Unique URL slug (default: "pvc-aigateway")
+#   GRAFANA_REGION_SLUG        – Grafana Cloud region (default: "prod-us-central-0")
+#
+# After a successful apply the job prints the stack URL and reminds you to set
+# the GRAFANA_URL and GRAFANA_SA_TOKEN secrets used by deploy-grafana-dashboards.
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "infra/grafana/**"
+      - "infra/modules/grafana_cloud/**"
+      - ".github/workflows/deploy-grafana.yaml"
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  TF_BACKEND_RG: ${{ secrets.TF_BACKEND_RG }}
+  TF_BACKEND_SA: ${{ secrets.TF_BACKEND_SA }}
+  TF_BACKEND_CONTAINER: ${{ secrets.TF_BACKEND_CONTAINER }}
+  # Grafana Cloud provider token
+  TF_VAR_grafana_cloud_access_policy_token: ${{ secrets.GRAFANA_CLOUD_ACCESS_POLICY_TOKEN }}
+  # Stack configuration (override via repository variables as needed)
+  TF_VAR_stack_name: ${{ vars.GRAFANA_STACK_NAME || 'PVC AI Gateway' }}
+  TF_VAR_stack_slug: ${{ vars.GRAFANA_STACK_SLUG || 'pvc-aigateway' }}
+  TF_VAR_region_slug: ${{ vars.GRAFANA_REGION_SLUG || 'prod-us-central-0' }}
+
+jobs:
+  deploy-grafana:
+    name: Provision Grafana Cloud Stack
+    runs-on: ubuntu-latest
+    environment: prod
+    defaults:
+      run:
+        working-directory: infra/grafana
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate required secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=0
+          for v in \
+            AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID \
+            TF_BACKEND_RG TF_BACKEND_SA TF_BACKEND_CONTAINER \
+            TF_VAR_grafana_cloud_access_policy_token; do
+            if [ -z "${!v:-}" ]; then
+              echo "::error::Missing required secret/variable: ${v}"
+              missing=1
+            fi
+          done
+          [ "${missing}" -eq 0 ] || exit 1
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.14.6
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        run: |
+          terraform init \
+            -backend-config="resource_group_name=${TF_BACKEND_RG}" \
+            -backend-config="storage_account_name=${TF_BACKEND_SA}" \
+            -backend-config="container_name=${TF_BACKEND_CONTAINER}" \
+            -backend-config="key=grafana.terraform.tfstate"
+
+      - name: Terraform Plan
+        run: terraform plan -out=tfplan
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve tfplan
+
+      - name: Print stack details and write job summary
+        shell: bash
+        run: |
+          set -euo pipefail
+          STACK_URL=$(terraform output -raw stack_url 2>/dev/null || echo "")
+          PROM_URL=$(terraform output -raw prometheus_url 2>/dev/null || echo "")
+          SA_TOKEN=$(terraform output -raw github_actions_token 2>/dev/null || echo "")
+
+          # Mask the token so it is never emitted in plain text to logs or summaries.
+          if [ -n "${SA_TOKEN}" ]; then
+            echo "::add-mask::${SA_TOKEN}"
+          fi
+
+          echo "Grafana Cloud stack deployed successfully."
+          echo "  Stack URL:      ${STACK_URL}"
+          echo "  Prometheus URL: ${PROM_URL}"
+
+          # Write bootstrap instructions to the job summary.
+          # The token value is intentionally omitted — retrieve it securely via:
+          #   terraform -chdir=infra/grafana output -raw github_actions_token
+          SA_TOKEN_PREFIX="${SA_TOKEN:0:8}"
+          {
+            echo "## Grafana Cloud Stack — Bootstrap Secrets"
+            echo ""
+            echo "Set these GitHub Actions secrets to enable dashboard deployments:"
+            echo ""
+            echo "| Secret | How to obtain |"
+            echo "| --- | --- |"
+            echo "| \`GRAFANA_URL\` | \`${STACK_URL}\` |"
+            echo "| \`GRAFANA_SA_TOKEN\` | Run \`terraform -chdir=infra/grafana output -raw github_actions_token\` locally (prefix: \`${SA_TOKEN_PREFIX}...\`) |"
+            echo ""
+            echo "### Additional info"
+            echo "| Output | Value |"
+            echo "| --- | --- |"
+            echo "| Prometheus URL | \`${PROM_URL}\` |"
+            echo ""
+            echo "> **Note:** \`GRAFANA_SA_TOKEN\` is a sensitive value — never share it in logs or summaries."
+            echo "> After setting these secrets, re-trigger **Deploy Grafana Dashboards** via"
+            echo "> \`workflow_dispatch\` to import the LiteLLM dashboards."
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+  check-grafana-secrets:
+    name: Check Grafana dashboard secrets
+    runs-on: ubuntu-latest
+    needs: deploy-grafana
+    outputs:
+      has-secrets: ${{ steps.check.outputs.has-secrets }}
+    env:
+      GRAFANA_URL: ${{ secrets.GRAFANA_URL }}
+      GRAFANA_SA_TOKEN: ${{ secrets.GRAFANA_SA_TOKEN }}
+    steps:
+      - id: check
+        shell: bash
+        run: |
+          if [ -n "${GRAFANA_URL}" ] && [ -n "${GRAFANA_SA_TOKEN}" ]; then
+            echo "has-secrets=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "has-secrets=false" >> "${GITHUB_OUTPUT}"
+            echo "::notice::GRAFANA_URL or GRAFANA_SA_TOKEN not set — skipping dashboard import."
+            echo "Set these secrets then re-trigger this workflow or run deploy-grafana-dashboards.yaml via workflow_dispatch."
+          fi
+
+  deploy-dashboards:
+    name: Import LiteLLM dashboards
+    # Runs after Terraform apply; requires GRAFANA_URL and GRAFANA_SA_TOKEN to be
+    # set as GitHub Actions secrets. On first-run bootstrap these will not yet be
+    # set — run `terraform -chdir=infra/grafana output -raw github_actions_token`
+    # locally, set the GRAFANA_URL and GRAFANA_SA_TOKEN secrets, then re-run this
+    # workflow or trigger deploy-grafana-dashboards.yaml directly via workflow_dispatch.
+    needs: [deploy-grafana, check-grafana-secrets]
+    if: needs.check-grafana-secrets.outputs.has-secrets == 'true'
+    uses: ./.github/workflows/deploy-grafana-dashboards.yaml
+    secrets: inherit

@@ -57,13 +57,15 @@ jobs:
       # Terraform Variables (Secrets & Config) - sourced from per-environment GitHub secrets
       TF_VAR_azure_openai_endpoint: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
       TF_VAR_azure_openai_api_key: ${{ secrets.AZURE_OPENAI_API_KEY }}
+      TF_VAR_azure_openai_embedding_endpoint: ${{ secrets.AZURE_OPENAI_EMBEDDING_ENDPOINT }}
+      TF_VAR_azure_openai_embedding_api_key: ${{ secrets.AZURE_OPENAI_EMBEDDING_API_KEY }}
       TF_VAR_gateway_key: ${{ secrets.AIGATEWAY_KEY }}
 
       # Model Configuration (environment-specific to match deploy jobs)
       TF_VAR_codex_model: ${{ matrix.environment == 'prod' && 'gpt-4o' || 'gpt-5.3-codex' }}
       TF_VAR_codex_api_version: ${{ matrix.environment == 'prod' && '2025-01-01-preview' || '2025-04-01-preview' }}
       TF_VAR_embedding_deployment: "text-embedding-3-large"
-      TF_VAR_embeddings_api_version: ${{ matrix.environment == 'prod' && '2024-02-01' || '2023-05-15' }}
+      TF_VAR_embeddings_api_version: "2024-02-01"
 
     steps:
       - name: Checkout code
@@ -129,13 +131,6 @@ jobs:
         run: |
           terraform plan -out=tfplan
 
-      - name: Upload Plan
-        uses: actions/upload-artifact@v4
-        with:
-          name: tfplan-${{ matrix.environment }}
-          path: infra/env/${{ matrix.environment }}/tfplan
-          retention-days: 1
-
   deploy-dev:
     name: Deploy dev
     needs: plan
@@ -153,11 +148,13 @@ jobs:
       TF_VAR_location_short: "san"
       TF_VAR_azure_openai_endpoint: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
       TF_VAR_azure_openai_api_key: ${{ secrets.AZURE_OPENAI_API_KEY }}
+      TF_VAR_azure_openai_embedding_endpoint: ${{ secrets.AZURE_OPENAI_EMBEDDING_ENDPOINT }}
+      TF_VAR_azure_openai_embedding_api_key: ${{ secrets.AZURE_OPENAI_EMBEDDING_API_KEY }}
       TF_VAR_gateway_key: ${{ secrets.AIGATEWAY_KEY }}
       TF_VAR_codex_model: "gpt-5.3-codex"
       TF_VAR_codex_api_version: "2025-04-01-preview"
       TF_VAR_embedding_deployment: "text-embedding-3-large"
-      TF_VAR_embeddings_api_version: "2023-05-15"
+      TF_VAR_embeddings_api_version: "2024-02-01"
 
     steps:
       - name: Checkout code
@@ -219,11 +216,46 @@ jobs:
             -backend-config="container_name=${TF_BACKEND_CONTAINER}" \
             -backend-config="key=dev.terraform.tfstate"
 
-      - name: Download Plan
-        uses: actions/download-artifact@v4
-        with:
-          name: tfplan-dev
-          path: infra/env/dev
+      - name: Import existing Container App into Terraform state
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROJNAME="${TF_VAR_projname}"
+          ENV="${TF_VAR_env}"
+          LOC="${TF_VAR_location_short}"
+          CA_NAME="pvc-${ENV}-${PROJNAME}-ca-${LOC}"
+          RG_NAME="pvc-${ENV}-${PROJNAME}-rg-${LOC}"
+          CA_ID="/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${RG_NAME}/providers/Microsoft.App/containerApps/${CA_NAME}"
+          if az containerapp show --ids "${CA_ID}" &>/dev/null; then
+            if ! PROV_STATE=$(az containerapp show --ids "${CA_ID}" --query "properties.provisioningState" -o tsv 2>/dev/null); then
+              echo "::warning::Could not determine provisioningState for ${CA_NAME}. Skipping import/delete."
+            else
+              echo "Container app ${CA_NAME} exists with provisioningState: ${PROV_STATE}"
+              if [ "${PROV_STATE}" = "Failed" ]; then
+                echo "Container app ${CA_NAME} is in Failed state. Deleting so Terraform can recreate it cleanly..."
+                if ! az containerapp delete --ids "${CA_ID}" --yes; then
+                  echo "::error::Failed to delete Container App ${CA_NAME}. Manual cleanup may be required."
+                  exit 1
+                fi
+                if terraform state list | grep -qxF "module.aigateway.azurerm_container_app.ca"; then
+                  echo "Removing stale state entry for ${CA_NAME}..."
+                  terraform state rm module.aigateway.azurerm_container_app.ca
+                fi
+              elif terraform state list | grep -qxF "module.aigateway.azurerm_container_app.ca"; then
+                echo "Container app ${CA_NAME} already in Terraform state, skipping import."
+              else
+                echo "Importing ${CA_NAME} into Terraform state..."
+                terraform state rm module.aigateway.azurerm_container_app.ca 2>/dev/null || true
+                terraform import module.aigateway.azurerm_container_app.ca "${CA_ID}"
+              fi
+            fi
+          else
+            echo "Container app ${CA_NAME} not found in Azure, no import needed."
+          fi
+
+      - name: Terraform Plan
+        run: |
+          terraform plan -out=tfplan
 
       - name: Terraform Apply
         run: |
@@ -254,6 +286,20 @@ jobs:
           az containerapp show -g "${RG_NAME}" -n "${CA_NAME}" --query "properties.template.containers[0].env[?name=='LITELLM_CONFIG_CONTENT'].value | [0]" -o tsv | head -c 2000 || true
           echo
 
+      - name: Integration test (Azure OpenAI backend)
+        shell: bash
+        env:
+          AZURE_OPENAI_ENDPOINT: ${{ env.TF_VAR_azure_openai_endpoint }}
+          AZURE_OPENAI_API_KEY: ${{ env.TF_VAR_azure_openai_api_key }}
+          AZURE_OPENAI_EMBEDDING_ENDPOINT: ${{ env.TF_VAR_azure_openai_embedding_endpoint }}
+          AZURE_OPENAI_EMBEDDING_API_KEY: ${{ env.TF_VAR_azure_openai_embedding_api_key }}
+          AZURE_OPENAI_EMBEDDING_DEPLOYMENT: ${{ env.TF_VAR_embedding_deployment }}
+          AZURE_OPENAI_API_VERSION: ${{ env.TF_VAR_embeddings_api_version }}
+          AZURE_OPENAI_CODEX_MODEL: ${{ env.TF_VAR_codex_model }}
+          AZURE_OPENAI_CODEX_API_VERSION: ${{ env.TF_VAR_codex_api_version }}
+        working-directory: ${{ github.workspace }}
+        run: python3 scripts/integration_test.py
+
       - name: Smoke test gateway (embeddings + responses)
         uses: ./.github/actions/smoke-test-gateway
         with:
@@ -283,11 +329,13 @@ jobs:
       TF_VAR_location_short: "san"
       TF_VAR_azure_openai_endpoint: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
       TF_VAR_azure_openai_api_key: ${{ secrets.AZURE_OPENAI_API_KEY }}
+      TF_VAR_azure_openai_embedding_endpoint: ${{ secrets.AZURE_OPENAI_EMBEDDING_ENDPOINT }}
+      TF_VAR_azure_openai_embedding_api_key: ${{ secrets.AZURE_OPENAI_EMBEDDING_API_KEY }}
       TF_VAR_gateway_key: ${{ secrets.AIGATEWAY_KEY }}
       TF_VAR_codex_model: "gpt-5.3-codex"
       TF_VAR_codex_api_version: "2025-04-01-preview"
       TF_VAR_embedding_deployment: "text-embedding-3-large"
-      TF_VAR_embeddings_api_version: "2023-05-15"
+      TF_VAR_embeddings_api_version: "2024-02-01"
 
     steps:
       - name: Checkout code
@@ -349,11 +397,46 @@ jobs:
             -backend-config="container_name=${TF_BACKEND_CONTAINER}" \
             -backend-config="key=uat.terraform.tfstate"
 
-      - name: Download Plan
-        uses: actions/download-artifact@v4
-        with:
-          name: tfplan-uat
-          path: infra/env/uat
+      - name: Import existing Container App into Terraform state
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROJNAME="${TF_VAR_projname}"
+          ENV="${TF_VAR_env}"
+          LOC="${TF_VAR_location_short}"
+          CA_NAME="pvc-${ENV}-${PROJNAME}-ca-${LOC}"
+          RG_NAME="pvc-${ENV}-${PROJNAME}-rg-${LOC}"
+          CA_ID="/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${RG_NAME}/providers/Microsoft.App/containerApps/${CA_NAME}"
+          if az containerapp show --ids "${CA_ID}" &>/dev/null; then
+            if ! PROV_STATE=$(az containerapp show --ids "${CA_ID}" --query "properties.provisioningState" -o tsv 2>/dev/null); then
+              echo "::warning::Could not determine provisioningState for ${CA_NAME}. Skipping import/delete."
+            else
+              echo "Container app ${CA_NAME} exists with provisioningState: ${PROV_STATE}"
+              if [ "${PROV_STATE}" = "Failed" ]; then
+                echo "Container app ${CA_NAME} is in Failed state. Deleting so Terraform can recreate it cleanly..."
+                if ! az containerapp delete --ids "${CA_ID}" --yes; then
+                  echo "::error::Failed to delete Container App ${CA_NAME}. Manual cleanup may be required."
+                  exit 1
+                fi
+                if terraform state list | grep -qxF "module.aigateway.azurerm_container_app.ca"; then
+                  echo "Removing stale state entry for ${CA_NAME}..."
+                  terraform state rm module.aigateway.azurerm_container_app.ca
+                fi
+              elif terraform state list | grep -qxF "module.aigateway.azurerm_container_app.ca"; then
+                echo "Container app ${CA_NAME} already in Terraform state, skipping import."
+              else
+                echo "Importing ${CA_NAME} into Terraform state..."
+                terraform state rm module.aigateway.azurerm_container_app.ca 2>/dev/null || true
+                terraform import module.aigateway.azurerm_container_app.ca "${CA_ID}"
+              fi
+            fi
+          else
+            echo "Container app ${CA_NAME} not found in Azure, no import needed."
+          fi
+
+      - name: Terraform Plan
+        run: |
+          terraform plan -out=tfplan
 
       - name: Terraform Apply
         run: |
@@ -384,6 +467,20 @@ jobs:
           az containerapp show -g "${RG_NAME}" -n "${CA_NAME}" --query "properties.template.containers[0].env[?name=='LITELLM_CONFIG_CONTENT'].value | [0]" -o tsv | head -c 2000 || true
           echo
 
+      - name: Integration test (Azure OpenAI backend)
+        shell: bash
+        env:
+          AZURE_OPENAI_ENDPOINT: ${{ env.TF_VAR_azure_openai_endpoint }}
+          AZURE_OPENAI_API_KEY: ${{ env.TF_VAR_azure_openai_api_key }}
+          AZURE_OPENAI_EMBEDDING_ENDPOINT: ${{ env.TF_VAR_azure_openai_embedding_endpoint }}
+          AZURE_OPENAI_EMBEDDING_API_KEY: ${{ env.TF_VAR_azure_openai_embedding_api_key }}
+          AZURE_OPENAI_EMBEDDING_DEPLOYMENT: ${{ env.TF_VAR_embedding_deployment }}
+          AZURE_OPENAI_API_VERSION: ${{ env.TF_VAR_embeddings_api_version }}
+          AZURE_OPENAI_CODEX_MODEL: ${{ env.TF_VAR_codex_model }}
+          AZURE_OPENAI_CODEX_API_VERSION: ${{ env.TF_VAR_codex_api_version }}
+        working-directory: ${{ github.workspace }}
+        run: python3 scripts/integration_test.py
+
       - name: Smoke test gateway (embeddings + responses)
         uses: ./.github/actions/smoke-test-gateway
         with:
@@ -413,6 +510,8 @@ jobs:
       TF_VAR_location_short: "san"
       TF_VAR_azure_openai_endpoint: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
       TF_VAR_azure_openai_api_key: ${{ secrets.AZURE_OPENAI_API_KEY }}
+      TF_VAR_azure_openai_embedding_endpoint: ${{ secrets.AZURE_OPENAI_EMBEDDING_ENDPOINT }}
+      TF_VAR_azure_openai_embedding_api_key: ${{ secrets.AZURE_OPENAI_EMBEDDING_API_KEY }}
       TF_VAR_gateway_key: ${{ secrets.AIGATEWAY_KEY }}
       TF_VAR_codex_model: "gpt-4o"
       TF_VAR_codex_api_version: "2025-01-01-preview"
@@ -483,11 +582,46 @@ jobs:
             -backend-config="container_name=${TF_BACKEND_CONTAINER}" \
             -backend-config="key=prod.terraform.tfstate"
 
-      - name: Download Plan
-        uses: actions/download-artifact@v4
-        with:
-          name: tfplan-prod
-          path: infra/env/prod
+      - name: Import existing Container App into Terraform state
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROJNAME="${TF_VAR_projname}"
+          ENV="${TF_VAR_env}"
+          LOC="${TF_VAR_location_short}"
+          CA_NAME="pvc-${ENV}-${PROJNAME}-ca-${LOC}"
+          RG_NAME="pvc-${ENV}-${PROJNAME}-rg-${LOC}"
+          CA_ID="/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${RG_NAME}/providers/Microsoft.App/containerApps/${CA_NAME}"
+          if az containerapp show --ids "${CA_ID}" &>/dev/null; then
+            if ! PROV_STATE=$(az containerapp show --ids "${CA_ID}" --query "properties.provisioningState" -o tsv 2>/dev/null); then
+              echo "::warning::Could not determine provisioningState for ${CA_NAME}. Skipping import/delete."
+            else
+              echo "Container app ${CA_NAME} exists with provisioningState: ${PROV_STATE}"
+              if [ "${PROV_STATE}" = "Failed" ]; then
+                echo "Container app ${CA_NAME} is in Failed state. Deleting so Terraform can recreate it cleanly..."
+                if ! az containerapp delete --ids "${CA_ID}" --yes; then
+                  echo "::error::Failed to delete Container App ${CA_NAME}. Manual cleanup may be required."
+                  exit 1
+                fi
+                if terraform state list | grep -qxF "module.aigateway.azurerm_container_app.ca"; then
+                  echo "Removing stale state entry for ${CA_NAME}..."
+                  terraform state rm module.aigateway.azurerm_container_app.ca
+                fi
+              elif terraform state list | grep -qxF "module.aigateway.azurerm_container_app.ca"; then
+                echo "Container app ${CA_NAME} already in Terraform state, skipping import."
+              else
+                echo "Importing ${CA_NAME} into Terraform state..."
+                terraform state rm module.aigateway.azurerm_container_app.ca 2>/dev/null || true
+                terraform import module.aigateway.azurerm_container_app.ca "${CA_ID}"
+              fi
+            fi
+          else
+            echo "Container app ${CA_NAME} not found in Azure, no import needed."
+          fi
+
+      - name: Terraform Plan
+        run: |
+          terraform plan -out=tfplan
 
       - name: Terraform Apply
         run: |
@@ -518,6 +652,20 @@ jobs:
           az containerapp show -g "${RG_NAME}" -n "${CA_NAME}" --query "properties.template.containers[0].env[?name=='LITELLM_CONFIG_CONTENT'].value | [0]" -o tsv | head -c 2000 || true
           echo
 
+      - name: Integration test (Azure OpenAI backend)
+        shell: bash
+        env:
+          AZURE_OPENAI_ENDPOINT: ${{ env.TF_VAR_azure_openai_endpoint }}
+          AZURE_OPENAI_API_KEY: ${{ env.TF_VAR_azure_openai_api_key }}
+          AZURE_OPENAI_EMBEDDING_ENDPOINT: ${{ env.TF_VAR_azure_openai_embedding_endpoint }}
+          AZURE_OPENAI_EMBEDDING_API_KEY: ${{ env.TF_VAR_azure_openai_embedding_api_key }}
+          AZURE_OPENAI_EMBEDDING_DEPLOYMENT: ${{ env.TF_VAR_embedding_deployment }}
+          AZURE_OPENAI_API_VERSION: ${{ env.TF_VAR_embeddings_api_version }}
+          AZURE_OPENAI_CODEX_MODEL: ${{ env.TF_VAR_codex_model }}
+          AZURE_OPENAI_CODEX_API_VERSION: ${{ env.TF_VAR_codex_api_version }}
+        working-directory: ${{ github.workspace }}
+        run: python3 scripts/integration_test.py
+
       - name: Smoke test gateway (embeddings + responses)
         uses: ./.github/actions/smoke-test-gateway
         with:
@@ -529,3 +677,5 @@ jobs:
           aoai_api_key: ${{ env.TF_VAR_azure_openai_api_key }}
           max_attempts: "5"
           retry_sleep: "15" # prod: longer cold-start; allow more time between retries
+          models_wait_attempts: "5" # prod: wait longer for LiteLLM to register healthy deployments
+          models_wait_sleep: "30"

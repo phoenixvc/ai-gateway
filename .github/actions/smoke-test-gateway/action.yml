@@ -29,6 +29,14 @@ inputs:
     required: false
     default: "10"
     description: Seconds between retries
+  models_wait_attempts:
+    required: false
+    default: "3"
+    description: retry attempts waiting for /v1/models to return at least one model (handles LiteLLM cold-start)
+  models_wait_sleep:
+    required: false
+    default: "30"
+    description: Seconds between /v1/models wait retries when the model list is empty
 runs:
   using: composite
   steps:
@@ -43,6 +51,8 @@ runs:
         AOAI_KEY: ${{ inputs.aoai_api_key }}
         SMOKE_MAX_ATTEMPTS: ${{ inputs.max_attempts }}
         SMOKE_RETRY_SLEEP: ${{ inputs.retry_sleep }}
+        SMOKE_MODELS_WAIT_ATTEMPTS: ${{ inputs.models_wait_attempts }}
+        SMOKE_MODELS_WAIT_SLEEP: ${{ inputs.models_wait_sleep }}
       run: |
         set -euo pipefail
         echo "Gateway: ${GW}"
@@ -80,7 +90,9 @@ runs:
               -H "Authorization: ${AUTH_HEADER_VALUE}" \
               > /tmp/models.code 2>/dev/null || true
             models_code=$(cat /tmp/models.code 2>/dev/null || echo "")
-            [ -z "$models_code" ] || [[ ! "$models_code" =~ ^[0-9]+$ ]] && models_code=0
+            if [ -z "$models_code" ] || [[ ! "$models_code" =~ ^[0-9]+$ ]]; then
+              models_code=0
+            fi
             if [ "$models_code" -ge 200 ] && [ "$models_code" -lt 300 ]; then
               MODELS_CODE="$models_code"
               return 0
@@ -88,6 +100,24 @@ runs:
             echo "Attempt ${attempt}/${SMOKE_MAX_ATTEMPTS}: /v1/models returned ${models_code}, retrying in ${SMOKE_RETRY_SLEEP}s..."
             sleep "${SMOKE_RETRY_SLEEP}"
           done
+          MODELS_CODE="$models_code"
+          return 1
+        }
+
+        fetch_models_once() {
+          local models_code=0
+          curl -sS -o /tmp/models.json -w "%{http_code}" \
+            -X GET "${GW}/v1/models" \
+            -H "Authorization: ${AUTH_HEADER_VALUE}" \
+            > /tmp/models.code 2>/dev/null || true
+          models_code=$(cat /tmp/models.code 2>/dev/null || echo "")
+          if [ -z "$models_code" ] || [[ ! "$models_code" =~ ^[0-9]+$ ]]; then
+            models_code=0
+          fi
+          if [ "$models_code" -ge 200 ] && [ "$models_code" -lt 300 ]; then
+            MODELS_CODE="$models_code"
+            return 0
+          fi
           MODELS_CODE="$models_code"
           return 1
         }
@@ -102,7 +132,7 @@ runs:
             return 0
           fi
 
-          local deploy_url="${AOAI_ENDPOINT%/}/openai/deployments?api-version=2023-05-15"
+          local deploy_url="${AOAI_ENDPOINT%/}/openai/deployments?api-version=2024-02-01"
           curl -sS --connect-timeout 10 --max-time 30 \
             -o /tmp/aoai_deployments.json -w "%{http_code}" \
             -X GET "${deploy_url}" \
@@ -150,7 +180,10 @@ runs:
             -d "{\"model\":\"${candidate}\",\"input\":\"smoke test\"}" \
             > /tmp/emb_probe.code 2>/dev/null || true
           code=$(cat /tmp/emb_probe.code 2>/dev/null || echo "")
-          [ -z "$code" ] || [[ ! "$code" =~ ^[0-9]+$ ]] && code=0
+          if [ -z "$code" ] || [[ ! "$code" =~ ^[0-9]+$ ]]; then
+            code=0
+          fi
+          EMB_PROBE_LAST_CODE="${code}"
           if [ "$code" -ge 200 ] && [ "$code" -lt 300 ]; then
             return 0
           fi
@@ -245,6 +278,7 @@ runs:
             fi
           } | sed '/^$/d' | awk '!seen[$0]++' > /tmp/emb.candidates
 
+          EMB_PROBE_LAST_CODE=0
           while IFS= read -r candidate; do
             echo "Probing embedding candidate: ${candidate}"
             if probe_embedding_model "${candidate}"; then
@@ -252,15 +286,92 @@ runs:
               echo "Selected embedding model from probe: ${EMB_EFFECTIVE}"
               return 0
             fi
+            echo "  Probe for '${candidate}' returned HTTP ${EMB_PROBE_LAST_CODE}."
+            if [ "${EMB_PROBE_LAST_CODE}" -eq 401 ]; then
+              echo "  HTTP 401 may indicate an invalid or missing gateway Authorization (gateway_key) header, or that the backend Azure OpenAI credentials do not permit access to deployment '${candidate}'. See /tmp/emb_probe.json for the full error."
+            elif [ "${EMB_PROBE_LAST_CODE}" -eq 404 ]; then
+              echo "  HTTP 404 may indicate an incorrect gateway_url, a missing or misconfigured /v1/embeddings route, or that the backend deployment '${candidate}' does not exist. See /tmp/emb_probe.json for the full error."
+            elif [ "${EMB_PROBE_LAST_CODE}" -eq 400 ]; then
+              echo "  HTTP 400: LiteLLM has no healthy backend for '${candidate}'. The Azure deployment may not exist or the API key/endpoint may be misconfigured."
+            fi
+            if [ -s /tmp/emb_probe.json ]; then
+              echo "  Response: $(head -c 300 /tmp/emb_probe.json)"
+            fi
           done < /tmp/emb.candidates
 
           echo "No embedding probe candidate succeeded; keeping '${EMB_EFFECTIVE}'."
           return 0
         }
 
+        require_models_or_wait() {
+          if ! command -v jq >/dev/null 2>&1; then
+            return 0  # jq unavailable; proceed without model-list check
+          fi
+
+          local wait_attempts="${SMOKE_MODELS_WAIT_ATTEMPTS:-3}"
+          local wait_sleep="${SMOKE_MODELS_WAIT_SLEEP:-30}"
+
+          if ! [[ "${wait_attempts}" =~ ^[0-9]+$ ]] || [ "${wait_attempts}" -le 0 ]; then
+            echo "::error::Invalid SMOKE_MODELS_WAIT_ATTEMPTS value '${wait_attempts}'. Expected a positive integer." >&2
+            exit 1
+          fi
+          if ! [[ "${wait_sleep}" =~ ^[0-9]+$ ]] || [ "${wait_sleep}" -le 0 ]; then
+            echo "::error::Invalid SMOKE_MODELS_WAIT_SLEEP value '${wait_sleep}'. Expected a positive integer number of seconds." >&2
+            exit 1
+          fi
+
+          # Return early only when models list is non-empty AND contains the embedding model
+          if [ -s /tmp/models.ids ] && grep -Fxq "${EMB_EFFECTIVE:-}" /tmp/models.ids 2>/dev/null; then
+            return 0
+          fi
+
+          for attempt in $(seq 1 "${wait_attempts}"); do
+            if [ ! -s /tmp/models.ids ]; then
+              echo "LiteLLM /v1/models is empty; querying /health for diagnostics (wait ${attempt}/${wait_attempts})..."
+            else
+              echo "LiteLLM /v1/models does not include embedding model '${EMB_EFFECTIVE}'; querying /health for diagnostics (wait ${attempt}/${wait_attempts})..."
+            fi
+            curl -sS -o /tmp/litellm_health.json -w "%{http_code}" \
+              -X GET "${GW}/health" \
+              -H "Authorization: ${AUTH_HEADER_VALUE}" \
+              > /tmp/litellm_health.code 2>/dev/null || true
+            local health_code
+            health_code=$(cat /tmp/litellm_health.code 2>/dev/null || echo "")
+            if [ -z "$health_code" ] || ! [[ "$health_code" =~ ^[0-9]+$ ]]; then health_code=0; fi
+            echo "  /health HTTP ${health_code}"
+            if [ -s /tmp/litellm_health.json ]; then
+              head -c 1200 /tmp/litellm_health.json || true  # first 1200 chars, matching other diagnostics
+              echo
+            fi
+            echo "  Waiting ${wait_sleep}s before re-checking /v1/models..."
+            sleep "${wait_sleep}"
+            fetch_models_once || true
+            jq -r '.data[]?.id // empty' /tmp/models.json 2>/dev/null | sed '/^$/d' > /tmp/models.ids || true
+            if [ -s /tmp/models.ids ]; then
+              echo "LiteLLM models now available after wait:"
+              head -n 30 /tmp/models.ids | sed 's/^/- /'
+              if grep -Fxq "${EMB_EFFECTIVE:-}" /tmp/models.ids 2>/dev/null; then
+                return 0
+              fi
+              echo "  Embedding model '${EMB_EFFECTIVE}' still not in model list after wait ${attempt}/${wait_attempts}."
+            fi
+          done
+
+          if [ ! -s /tmp/models.ids ]; then
+            echo "::error::LiteLLM /v1/models is still empty after ${wait_attempts} wait attempts. No healthy deployments available." >&2
+            dump_models_diagnostics
+            exit 1
+          else
+            echo "::warning::Embedding model '${EMB_EFFECTIVE}' not found in /v1/models after ${wait_attempts} wait attempts. The Azure OpenAI deployment may not exist or LiteLLM marked it unhealthy. Continuing to probe phase for diagnostics."
+            dump_models_diagnostics
+          fi
+        }
+
         fetch_aoai_deployments
 
         if fetch_models; then
+          resolve_effective_models
+          require_models_or_wait
           resolve_effective_models
         else
           echo "Unable to fetch /v1/models after retries; using requested models as-is."
@@ -292,6 +403,13 @@ runs:
         done
         if [ "$EMB_CODE" -lt 200 ] || [ "$EMB_CODE" -ge 300 ]; then
           echo "Embeddings failed after ${SMOKE_MAX_ATTEMPTS} attempts (${EMB_CODE})" >&2
+          if [ "$EMB_CODE" -eq 401 ]; then
+            echo "::error::HTTP 401 from embeddings endpoint. First verify the gateway_key (AIGATEWAY_KEY) and Authorization header are correct. If gateway auth is valid, check that the Azure OpenAI API key (TF_VAR_azure_openai_api_key) is correct and the deployment '${EMB_EFFECTIVE}' exists at the configured endpoint." >&2
+          elif [ "$EMB_CODE" -eq 400 ]; then
+            echo "::error::HTTP 400 from embeddings endpoint. LiteLLM reports no healthy deployments for '${EMB_EFFECTIVE}'. Verify the Azure OpenAI deployment exists, the API key is valid, and embeddings_api_version is >= 2024-02-01 for text-embedding-3-large." >&2
+          elif [ "$EMB_CODE" -eq 404 ]; then
+            echo "::error::HTTP 404 from embeddings endpoint. Verify gateway_url is correct and the /v1/embeddings route exists at the gateway. If the gateway is reachable, the deployment '${EMB_EFFECTIVE}' may not exist at the configured Azure OpenAI endpoint." >&2
+          fi
           cat /tmp/emb.json >&2 || true
           exit 1
         fi
@@ -314,6 +432,13 @@ runs:
         done
         if [ "$RESP_CODE" -lt 200 ] || [ "$RESP_CODE" -ge 300 ]; then
           echo "Responses failed after ${SMOKE_MAX_ATTEMPTS} attempts (${RESP_CODE})" >&2
+          if [ "$RESP_CODE" -eq 401 ]; then
+            echo "::error::HTTP 401 from responses endpoint. First verify the gateway_key (AIGATEWAY_KEY) and Authorization header are correct. If gateway auth is valid, check the Azure OpenAI API key and that deployment '${CODEX_EFFECTIVE}' exists at the configured endpoint." >&2
+          elif [ "$RESP_CODE" -eq 400 ]; then
+            echo "::error::HTTP 400 from responses endpoint. LiteLLM reports no healthy deployments for '${CODEX_EFFECTIVE}'. Verify the Azure OpenAI deployment exists and the API key is valid." >&2
+          elif [ "$RESP_CODE" -eq 404 ]; then
+            echo "::error::HTTP 404 from responses endpoint. Verify gateway_url is correct and the /v1/responses route exists at the gateway. If the gateway is reachable, the deployment '${CODEX_EFFECTIVE}' may not exist at the configured Azure OpenAI endpoint." >&2
+          fi
           cat /tmp/resp.json >&2 || true
           exit 1
         fi

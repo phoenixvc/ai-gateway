@@ -25,6 +25,20 @@ variable "azure_openai_api_key" {
   }
 }
 
+variable "azure_openai_embedding_endpoint" {
+  type    = string
+  default = ""
+  validation {
+    condition     = var.azure_openai_embedding_endpoint == "" || can(regex("^https://", var.azure_openai_embedding_endpoint))
+    error_message = "azure_openai_embedding_endpoint must be empty or start with https://."
+  }
+}
+variable "azure_openai_embedding_api_key" {
+  type      = string
+  sensitive = true
+  default   = ""
+}
+
 variable "gateway_key" {
   type      = string
   sensitive = true
@@ -78,4 +92,50 @@ variable "secrets_expiration_date" {
     condition     = can(regex("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$", var.secrets_expiration_date)) && can(formatdate("YYYY-MM-DD'T'hh:mm:ss'Z'", var.secrets_expiration_date)) && can(timecmp(var.secrets_expiration_date, "1970-01-01T00:00:00Z")) && timecmp(var.secrets_expiration_date, plantimestamp()) > 0
     error_message = "secrets_expiration_date must be in ISO-8601 UTC format and strictly in the future relative to plan time."
   }
+}
+
+variable "langfuse_public_key" {
+  type    = string
+  default = ""
+}
+
+variable "langfuse_secret_key" {
+  type      = string
+  sensitive = true
+  default   = ""
+}
+
+variable "langfuse_host" {
+  type    = string
+  default = ""
+}
+
+variable "enable_redis_cache" {
+  type    = bool
+  default = false
+}
+
+variable "redis_cache_capacity" {
+  type    = number
+  default = 0
+}
+
+variable "max_budget" {
+  type    = number
+  default = 0
+}
+
+variable "budget_duration" {
+  type    = string
+  default = ""
+}
+
+variable "rpm_limit" {
+  type    = number
+  default = 0
+}
+
+variable "tpm_limit" {
+  type    = number
+  default = 0
 }
