@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Gateway Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --border: #2d3147;
+      --accent: #5b8dee;
+      --green: #3ecf8e;
+      --red: #f87171;
+      --yellow: #facc15;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --radius: 8px;
+    }
+    body { background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, sans-serif; font-size: 14px; min-height: 100vh; }
+    header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 14px 24px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    header h1 { font-size: 18px; font-weight: 600; color: var(--accent); flex: 1; }
+    #env-badge { background: var(--border); border-radius: 4px; padding: 2px 10px; font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; }
+    #gateway-link { font-size: 12px; color: var(--muted); text-decoration: none; }
+    #gateway-link:hover { color: var(--accent); }
+    #grafana-btn { background: none; border: 1px solid var(--border); border-radius: var(--radius); padding: 5px 12px; color: var(--muted); cursor: pointer; font-size: 12px; }
+    #grafana-btn:hover { border-color: var(--accent); color: var(--accent); }
+    #grafana-btn.hidden { display: none; }
+    main { padding: 24px; display: flex; flex-direction: column; gap: 24px; max-width: 1400px; margin: 0 auto; }
+    .auth-bar { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 18px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .auth-bar label { color: var(--muted); font-size: 13px; white-space: nowrap; }
+    .auth-bar input[type=password] { flex: 1; min-width: 200px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 6px 10px; color: var(--text); font-size: 13px; }
+    .auth-bar input:focus { outline: none; border-color: var(--accent); }
+    .auth-bar button { background: var(--accent); border: none; border-radius: 4px; padding: 7px 16px; color: #fff; cursor: pointer; font-size: 13px; white-space: nowrap; }
+    .auth-bar button:hover { opacity: .85; }
+    #key-status { font-size: 12px; color: var(--muted); }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; }
+    .card .label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 10px; }
+    .card .value { font-size: 28px; font-weight: 700; }
+    .card .subtext { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .health-ok { color: var(--green); }
+    .health-deg { color: var(--yellow); }
+    .health-err { color: var(--red); }
+    .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 16px; }
+    .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; }
+    .chart-card h2 { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 14px; }
+    .chart-card canvas { max-height: 200px; }
+    .logs-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; }
+    .logs-card h2 { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 14px; }
+    .logs-table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { text-align: left; color: var(--muted); font-weight: 500; padding: 6px 10px; border-bottom: 1px solid var(--border); }
+    td { padding: 7px 10px; border-bottom: 1px solid var(--border); color: var(--text); }
+    tr:last-child td { border-bottom: none; }
+    td.status-ok { color: var(--green); }
+    td.status-err { color: var(--red); }
+    .empty { color: var(--muted); font-size: 13px; text-align: center; padding: 20px; }
+    .refresh-bar { display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--muted); }
+    #last-updated { }
+    #refresh-btn { background: none; border: 1px solid var(--border); border-radius: 4px; padding: 4px 10px; color: var(--muted); cursor: pointer; font-size: 12px; }
+    #refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
+    #auto-refresh-toggle { cursor: pointer; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>⚡ AI Gateway</h1>
+  <span id="env-badge">...</span>
+  <a id="gateway-link" href="#" target="_blank" rel="noopener">—</a>
+  <button id="grafana-btn" class="hidden" onclick="openGrafana()">Grafana →</button>
+</header>
+<main>
+
+  <div class="auth-bar">
+    <label for="api-key-input">Gateway Key</label>
+    <input type="password" id="api-key-input" placeholder="Enter your gateway API key…" autocomplete="off">
+    <button onclick="saveKey()">Apply</button>
+    <span id="key-status"></span>
+  </div>
+
+  <div class="refresh-bar">
+    <span id="last-updated">Not yet refreshed</span>
+    <button id="refresh-btn" onclick="refresh()">↻ Refresh</button>
+    <label id="auto-refresh-toggle">
+      <input type="checkbox" id="auto-refresh-cb" checked> Auto-refresh (30 s)
+    </label>
+  </div>
+
+  <div class="cards">
+    <div class="card">
+      <div class="label">Health</div>
+      <div class="value" id="health-val">—</div>
+      <div class="subtext" id="health-sub">Waiting…</div>
+    </div>
+    <div class="card">
+      <div class="label">Models Available</div>
+      <div class="value" id="models-val">—</div>
+      <div class="subtext" id="models-sub"></div>
+    </div>
+    <div class="card">
+      <div class="label">Total Requests</div>
+      <div class="value" id="req-val">—</div>
+      <div class="subtext" id="req-sub">all time</div>
+    </div>
+    <div class="card">
+      <div class="label">Total Tokens</div>
+      <div class="value" id="tok-val">—</div>
+      <div class="subtext" id="tok-sub">all time</div>
+    </div>
+    <div class="card">
+      <div class="label">Failed Requests</div>
+      <div class="value" id="err-val">—</div>
+      <div class="subtext" id="err-sub">all time</div>
+    </div>
+  </div>
+
+  <div class="charts">
+    <div class="chart-card">
+      <h2>Requests Over Time</h2>
+      <canvas id="req-chart"></canvas>
+    </div>
+    <div class="chart-card">
+      <h2>Token Usage Over Time</h2>
+      <canvas id="tok-chart"></canvas>
+    </div>
+  </div>
+
+  <div class="logs-card">
+    <h2>Recent Requests</h2>
+    <div class="logs-table-wrap">
+      <div id="logs-content" class="empty">Enter your gateway key above to load logs.</div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ── Config injected by nginx envsubst at container startup ──────────────────
+const GATEWAY_URL = "${GATEWAY_URL}";
+const GRAFANA_URL  = "${GRAFANA_URL}";
+const ENV_NAME     = "${ENV_NAME}";
+
+// ── History buffers for rolling charts (max 20 data points) ─────────────────
+const MAX_POINTS = 20;
+const reqHistory  = { labels: [], datasets: [{ label: "Requests", data: [], borderColor: "#5b8dee", backgroundColor: "rgba(91,141,238,.15)", tension: .3, fill: true, pointRadius: 3 }] };
+const tokHistory  = { labels: [], datasets: [{ label: "Tokens", data: [], borderColor: "#3ecf8e", backgroundColor: "rgba(62,207,142,.15)", tension: .3, fill: true, pointRadius: 3 }] };
+let prevReq = null, prevTok = null;
+
+// ── Bootstrap ────────────────────────────────────────────────────────────────
+document.addEventListener("DOMContentLoaded", () => {
+  // Set header info
+  const envLabel = ENV_NAME || deriveEnv(GATEWAY_URL) || "gateway";
+  document.getElementById("env-badge").textContent = envLabel;
+  const gwLink = document.getElementById("gateway-link");
+  gwLink.href = GATEWAY_URL;
+  gwLink.textContent = GATEWAY_URL;
+
+  if (GRAFANA_URL && GRAFANA_URL !== "" && GRAFANA_URL !== "${GRAFANA_URL}") {
+    document.getElementById("grafana-btn").classList.remove("hidden");
+  }
+
+  initCharts();
+  restoreKey();
+
+  // Initial data load
+  refresh();
+
+  // Auto-refresh every 30 seconds
+  setInterval(() => {
+    if (document.getElementById("auto-refresh-cb").checked) refresh();
+  }, 30000);
+});
+
+function deriveEnv(url) {
+  if (!url) return null;
+  const m = url.match(/pvc-(dev|uat|prod)-/);
+  return m ? m[1] : null;
+}
+
+function openGrafana() {
+  if (GRAFANA_URL) window.open(GRAFANA_URL, "_blank", "noopener");
+}
+
+// ── API key helpers ───────────────────────────────────────────────────────────
+function getKey() { return sessionStorage.getItem("gw_key") || ""; }
+function saveKey() {
+  const v = document.getElementById("api-key-input").value.trim();
+  if (v) {
+    sessionStorage.setItem("gw_key", v);
+    document.getElementById("key-status").textContent = "✓ Key saved for this session";
+    refresh();
+  }
+}
+function restoreKey() {
+  const k = getKey();
+  if (k) {
+    document.getElementById("api-key-input").value = k;
+    document.getElementById("key-status").textContent = "✓ Key loaded from session";
+  }
+}
+
+// ── Fetch helpers ─────────────────────────────────────────────────────────────
+async function apiFetch(path, opts = {}) {
+  const key = getKey();
+  const headers = { ...(opts.headers || {}) };
+  if (key) headers["Authorization"] = "Bearer " + key;
+  const resp = await fetch("/api" + path, { ...opts, headers });
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+  return resp;
+}
+
+// ── Prometheus text-format parser ─────────────────────────────────────────────
+function parsePrometheus(text) {
+  const metrics = {};
+  for (const line of text.split("\n")) {
+    if (line.startsWith("#") || line.trim() === "") continue;
+    const m = line.match(/^([^\s{]+)(?:\{[^}]*\})?\s+([\d.eE+\-NaInf]+)/);
+    if (!m) continue;
+    const [, name, val] = m;
+    const n = parseFloat(val);
+    if (!isNaN(n)) {
+      metrics[name] = (metrics[name] || 0) + n;
+    }
+  }
+  return metrics;
+}
+
+// ── Charts ────────────────────────────────────────────────────────────────────
+const chartDefaults = {
+  type: "line",
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { ticks: { color: "#94a3b8", font: { size: 11 } }, grid: { color: "#2d3147" } },
+      y: { ticks: { color: "#94a3b8", font: { size: 11 } }, grid: { color: "#2d3147" }, beginAtZero: true }
+    }
+  }
+};
+
+let reqChart, tokChart;
+function initCharts() {
+  reqChart = new Chart(document.getElementById("req-chart"), { ...chartDefaults, data: reqHistory });
+  tokChart = new Chart(document.getElementById("tok-chart"), { ...chartDefaults, data: tokHistory });
+}
+
+function pushPoint(history, chart, label, value) {
+  history.labels.push(label);
+  history.datasets[0].data.push(value);
+  if (history.labels.length > MAX_POINTS) {
+    history.labels.shift();
+    history.datasets[0].data.shift();
+  }
+  chart.update("none");
+}
+
+// ── Health ────────────────────────────────────────────────────────────────────
+async function fetchHealth() {
+  try {
+    const resp = await apiFetch("/health");
+    const data = await resp.json();
+    const healthy = data.status === "healthy" || data.status === "ok";
+    const el = document.getElementById("health-val");
+    el.textContent = healthy ? "Healthy" : (data.status || "Degraded");
+    el.className = "value " + (healthy ? "health-ok" : "health-deg");
+    document.getElementById("health-sub").textContent = "LiteLLM gateway";
+  } catch (e) {
+    const el = document.getElementById("health-val");
+    el.textContent = "Unreachable";
+    el.className = "value health-err";
+    document.getElementById("health-sub").textContent = e.message;
+  }
+}
+
+// ── Models ────────────────────────────────────────────────────────────────────
+async function fetchModels() {
+  try {
+    const resp = await apiFetch("/v1/models");
+    const data = await resp.json();
+    const models = data.data || [];
+    document.getElementById("models-val").textContent = models.length;
+    document.getElementById("models-sub").textContent = models.map(m => m.id).join(", ").slice(0, 60) || "—";
+  } catch {
+    document.getElementById("models-val").textContent = "—";
+    document.getElementById("models-sub").textContent = "Auth required";
+  }
+}
+
+// ── Metrics ───────────────────────────────────────────────────────────────────
+async function fetchMetrics() {
+  try {
+    const resp = await apiFetch("/metrics");
+    const text = await resp.text();
+    const m = parsePrometheus(text);
+    const totalReq = m["litellm_requests_metric_total"] ?? m["litellm_llm_requests_metric_total"] ?? 0;
+    const totalTok = m["litellm_total_tokens"] ?? (m["litellm_input_tokens"] ?? 0) + (m["litellm_output_tokens"] ?? 0);
+    const totalErr = m["litellm_llm_api_failed_requests_metric_total"] ?? 0;
+
+    document.getElementById("req-val").textContent = fmtNum(totalReq);
+    document.getElementById("tok-val").textContent = fmtNum(totalTok);
+    document.getElementById("err-val").textContent = fmtNum(totalErr);
+    document.getElementById("err-val").className = "value " + (totalErr > 0 ? "health-err" : "");
+
+    const label = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    const deltaReq = prevReq !== null ? Math.max(0, totalReq - prevReq) : 0;
+    const deltaTok = prevTok !== null ? Math.max(0, totalTok - prevTok) : 0;
+    prevReq = totalReq; prevTok = totalTok;
+    pushPoint(reqHistory, reqChart, label, deltaReq);
+    pushPoint(tokHistory, tokChart, label, deltaTok);
+    document.getElementById("req-sub").textContent = `+${deltaReq} since last refresh`;
+    document.getElementById("tok-sub").textContent = `+${deltaTok} since last refresh`;
+  } catch (e) {
+    // Metrics require auth; silently skip if key not set
+    if (!getKey()) return;
+    document.getElementById("req-val").textContent = "—";
+    document.getElementById("tok-val").textContent = "—";
+    document.getElementById("err-val").textContent = "—";
+  }
+}
+
+// ── Logs ──────────────────────────────────────────────────────────────────────
+async function fetchLogs() {
+  const container = document.getElementById("logs-content");
+  if (!getKey()) { container.innerHTML = '<div class="empty">Enter your gateway key above to load logs.</div>'; return; }
+  try {
+    const resp = await apiFetch("/logs");
+    const data = await resp.json();
+    const rows = Array.isArray(data) ? data : (data.data || data.logs || []);
+    if (rows.length === 0) { container.innerHTML = '<div class="empty">No log entries found.</div>'; return; }
+    const recent = rows.slice(-50).reverse();
+    container.innerHTML = `
+      <table>
+        <thead><tr>
+          <th>Time</th><th>Model</th><th>Tokens In</th><th>Tokens Out</th>
+          <th>Latency (s)</th><th>Status</th><th>User</th>
+        </tr></thead>
+        <tbody>${recent.map(renderLogRow).join("")}</tbody>
+      </table>`;
+  } catch (e) {
+    container.innerHTML = `<div class="empty">Could not load logs: ${e.message}</div>`;
+  }
+}
+
+function renderLogRow(r) {
+  const ts    = r.startTime || r.start_time || r.created_at || r.timestamp || "";
+  const model = r.model || r.request_model || "—";
+  const tIn   = r.prompt_tokens || r.input_tokens || r.usage?.prompt_tokens || "—";
+  const tOut  = r.completion_tokens || r.output_tokens || r.usage?.completion_tokens || "—";
+  const lat   = r.response_time != null ? r.response_time.toFixed(2) : "—";
+  const ok    = (r.status_code ?? r.status ?? 200) < 400;
+  const status = r.status_code || r.status || (ok ? 200 : "err");
+  const user  = r.user || r.metadata?.user || "—";
+  const tsFmt = ts ? new Date(ts).toLocaleTimeString() : "—";
+  return `<tr>
+    <td>${tsFmt}</td><td>${model}</td><td>${tIn}</td><td>${tOut}</td>
+    <td>${lat}</td>
+    <td class="${ok ? "status-ok" : "status-err"}">${status}</td>
+    <td>${user}</td>
+  </tr>`;
+}
+
+// ── Refresh ───────────────────────────────────────────────────────────────────
+async function refresh() {
+  await Promise.allSettled([fetchHealth(), fetchModels(), fetchMetrics(), fetchLogs()]);
+  document.getElementById("last-updated").textContent = "Last updated: " + new Date().toLocaleTimeString();
+}
+
+function fmtNum(n) {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "M";
+  if (n >= 1_000)     return (n / 1_000).toFixed(1) + "k";
+  return String(Math.round(n));
+}
+</script>
+</body>
+</html>

@@ -58,6 +58,25 @@ module "aigateway" {
   tpm_limit       = var.tpm_limit
 }
 
+module "dashboard" {
+  source = "../../modules/dashboard_aca"
+
+  env            = var.env
+  projname       = var.projname
+  location_short = var.location_short
+  tags           = var.tags
+
+  container_app_environment_id = module.aigateway.container_app_environment_id
+  resource_group_name          = module.aigateway.resource_group_name
+  container_image              = var.dashboard_container_image
+  gateway_url                  = module.aigateway.gateway_url
+  grafana_url                  = var.grafana_url
+}
+
 output "gateway_url" {
   value = module.aigateway.gateway_url
+}
+
+output "dashboard_url" {
+  value = module.dashboard.dashboard_url
 }

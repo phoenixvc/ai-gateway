@@ -1,0 +1,45 @@
+server {
+    listen 80;
+    server_name _;
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # Health check endpoint for Azure Container Apps liveness/readiness probes
+    location /healthz {
+        access_log off;
+        return 200 'ok';
+        add_header Content-Type text/plain;
+    }
+
+    # Proxy all /api/* calls to the upstream gateway to avoid CORS issues.
+    # GATEWAY_URL is substituted by envsubst at container startup.
+    #
+    # Using a variable for proxy_pass + explicit resolver defers DNS lookup to
+    # request time instead of startup time, so the container starts even when
+    # the gateway hostname is temporarily unresolvable (e.g. during first deploy).
+    location /api/ {
+        # Public resolvers (fallback order); Azure internal DNS also works in ACA.
+        resolver 1.1.1.1 8.8.8.8 valid=30s ipv6=off;
+        set $gateway_upstream ${GATEWAY_URL};
+
+        # Strip the /api prefix, then forward to the gateway.
+        rewrite ^/api(/.*)$ $1 break;
+        proxy_pass              $gateway_upstream;
+        proxy_http_version      1.1;
+        proxy_ssl_server_name   on;
+        proxy_ssl_protocols     TLSv1.2 TLSv1.3;
+        proxy_set_header        Host              $proxy_host;
+        proxy_set_header        X-Real-IP         $remote_addr;
+        proxy_set_header        X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header        X-Forwarded-Proto $scheme;
+        proxy_pass_request_headers on;
+        proxy_read_timeout      120s;
+        proxy_connect_timeout   30s;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+        expires 5m;
+        add_header Cache-Control "public, max-age=300";
+    }
+}
