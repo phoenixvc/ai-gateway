@@ -1,0 +1,75 @@
+name: Import Container App into Terraform state
+description: >
+  Checks if an Azure Container App exists, handles Failed provisioning state (with
+  an environment guard to prevent accidental production deletes), and imports the
+  resource into Terraform state so that subsequent terraform apply can succeed.
+
+inputs:
+  projname:
+    required: true
+    description: Project name component of the Container App name (TF_VAR_projname)
+  env:
+    required: true
+    description: Environment name (dev|uat|prod)
+  location_short:
+    required: true
+    description: Short location code (TF_VAR_location_short)
+  subscription_id:
+    required: true
+    description: Azure subscription ID
+  terraform_working_directory:
+    required: true
+    description: Path to the Terraform working directory (e.g. infra/env/dev)
+  allow_auto_delete:
+    required: false
+    default: "false"
+    description: >
+      Set to "true" to allow automatic deletion of a Container App in Failed state.
+      Auto-delete is always blocked in prod unless this flag is explicitly "true".
+
+runs:
+  using: composite
+  steps:
+    - name: Import or handle Container App Terraform state
+      shell: bash
+      working-directory: ${{ inputs.terraform_working_directory }}
+      run: |
+        set -euo pipefail
+        PROJNAME="${{ inputs.projname }}"
+        ENV="${{ inputs.env }}"
+        LOC="${{ inputs.location_short }}"
+        CA_NAME="pvc-${ENV}-${PROJNAME}-ca-${LOC}"
+        RG_NAME="pvc-${ENV}-${PROJNAME}-rg-${LOC}"
+        CA_ID="/subscriptions/${{ inputs.subscription_id }}/resourceGroups/${RG_NAME}/providers/Microsoft.App/containerApps/${CA_NAME}"
+        ALLOW_AUTO_DELETE="${{ inputs.allow_auto_delete }}"
+
+        if PROV_STATE=$(az containerapp show --ids "${CA_ID}" --query "properties.provisioningState" -o tsv 2>/dev/null); then
+          if [ -z "${PROV_STATE}" ]; then
+            echo "::warning::Could not determine provisioningState for ${CA_NAME}. Skipping import/delete."
+          else
+            echo "Container app ${CA_NAME} exists with provisioningState: ${PROV_STATE}"
+            if [ "${PROV_STATE}" = "Failed" ]; then
+              if [ "${ENV}" = "prod" ] && [ "${ALLOW_AUTO_DELETE}" != "true" ]; then
+                echo "::error::Container app ${CA_NAME} is in Failed state in production. Auto-delete is disabled for prod to prevent downtime. Manually delete the app or set allow_auto_delete=true to override." >&2
+                exit 1
+              fi
+              echo "Container app ${CA_NAME} is in Failed state. Deleting so Terraform can recreate it cleanly..."
+              if ! az containerapp delete --ids "${CA_ID}" --yes; then
+                echo "::error::Failed to delete Container App ${CA_NAME}. Manual cleanup may be required."
+                exit 1
+              fi
+              if terraform state list | grep -qxF "module.aigateway.azurerm_container_app.ca"; then
+                echo "Removing stale state entry for ${CA_NAME}..."
+                terraform state rm module.aigateway.azurerm_container_app.ca
+              fi
+            elif terraform state list | grep -qxF "module.aigateway.azurerm_container_app.ca"; then
+              echo "Container app ${CA_NAME} already in Terraform state, skipping import."
+            else
+              echo "Importing ${CA_NAME} into Terraform state..."
+              terraform state rm module.aigateway.azurerm_container_app.ca 2>/dev/null || true
+              terraform import module.aigateway.azurerm_container_app.ca "${CA_ID}"
+            fi
+          fi
+        else
+          echo "Container app ${CA_NAME} not found in Azure, no import needed."
+        fi

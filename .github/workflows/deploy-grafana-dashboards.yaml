@@ -80,80 +80,58 @@ jobs:
             exit 1
           fi
 
-      - name: Import LiteLLM dashboard (ID 24055)
+      - name: Import LiteLLM dashboard (ID 24055) and LiteLLM Trace dashboard (ID 24064)
         shell: bash
         run: |
           set -euo pipefail
-          echo "Resolving latest LiteLLM dashboard revision from Grafana gallery (ID: 24055)..."
-          REVISION=$(curl -sf "https://grafana.com/api/dashboards/24055/revisions" | jq '.[0].revision')
-          if [ -z "${REVISION}" ] || [ "${REVISION}" = "null" ] || ! [[ "${REVISION}" =~ ^[0-9]+$ ]]; then
-            echo "::error::Failed to resolve revision for Grafana dashboard 24055 (got: '${REVISION}')" >&2
-            exit 1
-          fi
-          echo "Downloading LiteLLM dashboard revision ${REVISION} from Grafana gallery (ID: 24055)..."
-          curl -sf "https://grafana.com/api/dashboards/24055/revisions/${REVISION}/download" \
-            -o /tmp/litellm-24055.json
 
-          DASHBOARD_JSON=$(cat /tmp/litellm-24055.json)
+          import_dashboard() {
+            local dashboard_id="$1"
+            local tmp_file="/tmp/litellm-${dashboard_id}.json"
 
-          # Map every datasource __input to the configured Prometheus data source.
-          # Non-datasource inputs are passed through with their default values.
-          INPUTS=$(echo "${DASHBOARD_JSON}" | jq --arg ds "${GRAFANA_PROMETHEUS_DATASOURCE}" '
-            [.__inputs // [] | .[] |
-              if .type == "datasource" then
-                {name: .name, type: .type, pluginId: .pluginId, value: $ds}
-              else
-                {name: .name, type: .type, value: (.value // "")}
-              end
-            ]')
+            echo "Resolving latest dashboard revision from Grafana gallery (ID: ${dashboard_id})..."
+            REVISION=$(curl -sf "https://grafana.com/api/dashboards/${dashboard_id}/revisions" | jq '.[0].revision')
+            if [ -z "${REVISION}" ] || [ "${REVISION}" = "null" ] || ! [[ "${REVISION}" =~ ^[0-9]+$ ]]; then
+              echo "::error::Failed to resolve revision for Grafana dashboard ${dashboard_id} (got: '${REVISION}')" >&2
+              return 1
+            fi
+            echo "Downloading dashboard revision ${REVISION} from Grafana gallery (ID: ${dashboard_id})..."
+            curl -sf "https://grafana.com/api/dashboards/${dashboard_id}/revisions/${REVISION}/download" \
+              -o "${tmp_file}"
 
-          RESPONSE=$(jq -n \
-            --argjson dashboard "${DASHBOARD_JSON}" \
-            --argjson inputs "${INPUTS}" \
-            '{dashboard: $dashboard, folderUid: "litellm", overwrite: true, inputs: $inputs}' \
-          | curl -sf -X POST \
-            -H "Authorization: Bearer ${GRAFANA_SA_TOKEN}" \
-            -H "Content-Type: application/json" \
-            -d @- \
-            "${GRAFANA_URL}/api/dashboards/import")
+            DASHBOARD_JSON=$(cat "${tmp_file}")
+            INPUTS=$(echo "${DASHBOARD_JSON}" | jq --arg ds "${GRAFANA_PROMETHEUS_DATASOURCE}" '
+              [.__inputs // [] | .[] |
+                if .type == "datasource" then
+                  {name: .name, type: .type, pluginId: .pluginId, value: $ds}
+                else
+                  {name: .name, type: .type, value: (.value // "")}
+                end
+              ]')
 
-          IMPORTED_URL=$(echo "${RESPONSE}" | jq -r '.importedUrl // empty')
-          echo "LiteLLM dashboard (24055) imported successfully: ${GRAFANA_URL}${IMPORTED_URL}"
+            HTTP_STATUS=$(jq -n \
+              --argjson dashboard "${DASHBOARD_JSON}" \
+              --argjson inputs "${INPUTS}" \
+              '{dashboard: $dashboard, folderUid: "litellm", overwrite: true, inputs: $inputs}' \
+            | curl -s -o /tmp/import_response.json -w "%{http_code}" -X POST \
+              -H "Authorization: Bearer ${GRAFANA_SA_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d @- \
+              "${GRAFANA_URL}/api/dashboards/import")
 
-      - name: Import LiteLLM Trace dashboard (ID 24064)
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo "Resolving latest LiteLLM Trace dashboard revision from Grafana gallery (ID: 24064)..."
-          REVISION=$(curl -sf "https://grafana.com/api/dashboards/24064/revisions" | jq '.[0].revision')
-          if [ -z "${REVISION}" ] || [ "${REVISION}" = "null" ] || ! [[ "${REVISION}" =~ ^[0-9]+$ ]]; then
-            echo "::error::Failed to resolve revision for Grafana dashboard 24064 (got: '${REVISION}')" >&2
-            exit 1
-          fi
-          echo "Downloading LiteLLM Trace dashboard revision ${REVISION} from Grafana gallery (ID: 24064)..."
-          curl -sf "https://grafana.com/api/dashboards/24064/revisions/${REVISION}/download" \
-            -o /tmp/litellm-24064.json
+            RESPONSE=$(cat /tmp/import_response.json)
+            if [ "${HTTP_STATUS}" -lt 200 ] || [ "${HTTP_STATUS}" -ge 300 ]; then
+              echo "::error::Dashboard ${dashboard_id} import failed (HTTP ${HTTP_STATUS}): ${RESPONSE}" >&2
+              return 1
+            fi
 
-          DASHBOARD_JSON=$(cat /tmp/litellm-24064.json)
+            IMPORTED_URL=$(echo "${RESPONSE}" | jq -r '.importedUrl // empty')
+            if [ -z "${IMPORTED_URL}" ]; then
+              echo "::error::Dashboard ${dashboard_id} import succeeded but importedUrl not found in response: ${RESPONSE}" >&2
+              return 1
+            fi
+            echo "Dashboard ${dashboard_id} imported successfully: ${GRAFANA_URL}${IMPORTED_URL}"
+          }
 
-          INPUTS=$(echo "${DASHBOARD_JSON}" | jq --arg ds "${GRAFANA_PROMETHEUS_DATASOURCE}" '
-            [.__inputs // [] | .[] |
-              if .type == "datasource" then
-                {name: .name, type: .type, pluginId: .pluginId, value: $ds}
-              else
-                {name: .name, type: .type, value: (.value // "")}
-              end
-            ]')
-
-          RESPONSE=$(jq -n \
-            --argjson dashboard "${DASHBOARD_JSON}" \
-            --argjson inputs "${INPUTS}" \
-            '{dashboard: $dashboard, folderUid: "litellm", overwrite: true, inputs: $inputs}' \
-          | curl -sf -X POST \
-            -H "Authorization: Bearer ${GRAFANA_SA_TOKEN}" \
-            -H "Content-Type: application/json" \
-            -d @- \
-            "${GRAFANA_URL}/api/dashboards/import")
-
-          IMPORTED_URL=$(echo "${RESPONSE}" | jq -r '.importedUrl // empty')
-          echo "LiteLLM Trace dashboard (24064) imported successfully: ${GRAFANA_URL}${IMPORTED_URL}"
+          import_dashboard 24055
+          import_dashboard 24064
