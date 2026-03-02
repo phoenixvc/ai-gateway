@@ -170,3 +170,15 @@ variable "tpm_limit" {
     error_message = "tpm_limit must be non-negative."
   }
 }
+
+variable "dashboard_container_image" {
+  type        = string
+  description = "Dashboard container image (e.g. ghcr.io/phoenixvc/ai-gateway-dashboard:latest)"
+  default     = "ghcr.io/phoenixvc/ai-gateway-dashboard:latest"
+}
+
+variable "grafana_url" {
+  type        = string
+  description = "Grafana Cloud stack URL shown as a link in the dashboard (empty = hide button)"
+  default     = ""
+}

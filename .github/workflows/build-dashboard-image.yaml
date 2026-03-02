@@ -1,0 +1,104 @@
+name: Build Dashboard Image
+
+# Builds the lightweight gateway dashboard Docker image and pushes it to the
+# GitHub Container Registry (GHCR).  The resulting image is referenced by the
+# Terraform dashboard_aca module via the dashboard_container_image variable.
+#
+# Required repository secret / variable:
+#   (none — uses GITHUB_TOKEN for GHCR authentication)
+#
+# The workflow runs on:
+#   - Push to main that touches dashboard/** files
+#   - Manual trigger (workflow_dispatch) for on-demand rebuilds
+#
+# After a successful push the job appends instructions to the job summary:
+#   - image digest for use as TF_VAR_dashboard_container_image in deploy.yaml
+#   - example command to update the GitHub variable DASHBOARD_CONTAINER_IMAGE
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "dashboard/**"
+      - ".github/workflows/build-dashboard-image.yaml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write   # required to push to GHCR
+
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/ai-gateway-dashboard
+
+jobs:
+  build-and-push:
+    name: Build and push dashboard image
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags and labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=,format=short
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: dashboard
+          file: dashboard/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Write job summary
+        shell: bash
+        run: |
+          IMAGE_WITH_DIGEST="${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}"
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          IMAGE_WITH_TAG="${{ env.IMAGE_NAME }}:${SHORT_SHA}"
+          {
+            echo "## Dashboard Image Built"
+            echo ""
+            echo "| | Value |"
+            echo "| --- | --- |"
+            echo "| Image (tag) | \`${IMAGE_WITH_TAG}\` |"
+            echo "| Image (digest) | \`${IMAGE_WITH_DIGEST}\` |"
+            echo ""
+            echo "### Pin the image in Terraform"
+            echo ""
+            echo "To deploy this exact image, set the GitHub Actions variable \`DASHBOARD_CONTAINER_IMAGE\`"
+            echo "at repository or environment level:"
+            echo ""
+            echo "\`\`\`"
+            echo "${IMAGE_WITH_DIGEST}"
+            echo "\`\`\`"
+            echo ""
+            echo "Or use the short-SHA tag:"
+            echo "\`\`\`"
+            echo "${IMAGE_WITH_TAG}"
+            echo "\`\`\`"
+            echo ""
+            echo "> **Tip:** Using the digest form (\`@sha256:...\`) guarantees reproducible deploys"
+            echo "> even if the \`:latest\` tag is overwritten."
+          } >> "${GITHUB_STEP_SUMMARY}"

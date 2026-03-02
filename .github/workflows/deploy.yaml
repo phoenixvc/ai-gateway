@@ -22,6 +22,10 @@ env:
   TF_BACKEND_SA: ${{ secrets.TF_BACKEND_SA }}
   TF_BACKEND_CONTAINER: ${{ secrets.TF_BACKEND_CONTAINER }}
   TF_VAR_secrets_expiration_date: "2027-03-31T00:00:00Z"
+  # Dashboard: image and optional Grafana URL (set DASHBOARD_CONTAINER_IMAGE as a
+  # repository/environment variable to pin a specific digest; falls back to :latest)
+  TF_VAR_dashboard_container_image: ${{ vars.DASHBOARD_CONTAINER_IMAGE || 'ghcr.io/phoenixvc/ai-gateway-dashboard:latest' }}
+  TF_VAR_grafana_url: ${{ secrets.GRAFANA_URL || '' }}
 
 jobs:
   plan:
