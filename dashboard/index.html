@@ -63,6 +63,17 @@
     #refresh-btn { background: none; border: 1px solid var(--border); border-radius: 4px; padding: 4px 10px; color: var(--muted); cursor: pointer; font-size: 12px; }
     #refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
     #auto-refresh-toggle { cursor: pointer; }
+    #model-selection-toggle { cursor: pointer; }
+    #model-select {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 4px;
+      padding: 4px 8px;
+      font-size: 12px;
+      min-width: 220px;
+    }
+    #model-select:disabled { color: var(--muted); }
   </style>
 </head>
 <body>
@@ -87,6 +98,12 @@
     <label id="auto-refresh-toggle">
       <input type="checkbox" id="auto-refresh-cb" checked> Auto-refresh (30 s)
     </label>
+    <label id="model-selection-toggle">
+      <input type="checkbox" id="model-selection-cb" checked> Enable model selection
+    </label>
+    <select id="model-select" disabled>
+      <option value="">Loading models…</option>
+    </select>
   </div>
 
   <div class="cards">
@@ -174,6 +191,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   initCharts();
   restoreKey();
+  document.getElementById("model-selection-cb").addEventListener("change", updateModelSelectionState);
+  updateModelSelectionState();
 
   // Initial data load
   refresh();
@@ -253,6 +272,7 @@ const chartDefaults = {
 };
 
 let reqChart, tokChart;
+let availableModels = [];
 function initCharts() {
   if (typeof Chart === "undefined") {
     document.querySelectorAll(".chart-card").forEach(c => {
@@ -273,6 +293,33 @@ function pushPoint(history, chart, label, value) {
     history.datasets[0].data.shift();
   }
   chart.update("none");
+}
+
+function updateModelSelectionState() {
+  const toggle = document.getElementById("model-selection-cb");
+  const select = document.getElementById("model-select");
+  const enabled = toggle.checked;
+
+  if (!enabled) {
+    select.disabled = true;
+    select.innerHTML = '<option value="">Model selection disabled</option>';
+    return;
+  }
+
+  if (availableModels.length === 0) {
+    select.disabled = true;
+    select.innerHTML = '<option value="">No models available</option>';
+    return;
+  }
+
+  const previous = select.value;
+  select.innerHTML = availableModels
+    .map(id => `<option value="${escHtml(id)}">${escHtml(id)}</option>`)
+    .join("");
+
+  const nextValue = availableModels.includes(previous) ? previous : availableModels[0];
+  select.value = nextValue;
+  select.disabled = false;
 }
 
 // ── Health ────────────────────────────────────────────────────────────────────
@@ -298,12 +345,26 @@ async function fetchModels() {
   try {
     const resp = await apiFetch("/v1/models");
     const data = await resp.json();
-    const models = data.data || [];
-    document.getElementById("models-val").textContent = models.length;
-    document.getElementById("models-sub").textContent = models.map(m => m.id).join(", ").slice(0, 60) || "—";
-  } catch {
+    const modelItems = Array.isArray(data?.data)
+      ? data.data
+      : (Array.isArray(data) ? data : []);
+
+    availableModels = modelItems
+      .map(m => (m && typeof m === "object" ? m.id : null))
+      .filter(id => typeof id === "string" && id.trim() !== "");
+
+    document.getElementById("models-val").textContent = String(availableModels.length);
+    if (availableModels.length === 0) {
+      document.getElementById("models-sub").textContent = "No models available from LiteLLM";
+    } else {
+      document.getElementById("models-sub").textContent = availableModels.join(", ").slice(0, 60);
+    }
+    updateModelSelectionState();
+  } catch (e) {
+    availableModels = [];
     document.getElementById("models-val").textContent = "—";
-    document.getElementById("models-sub").textContent = "Auth required";
+    document.getElementById("models-sub").textContent = getKey() ? `Failed to load models: ${e.message}` : "Auth required";
+    updateModelSelectionState();
   }
 }
 
