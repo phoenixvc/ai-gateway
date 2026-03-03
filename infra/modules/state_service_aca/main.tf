@@ -10,8 +10,8 @@ terraform {
 }
 
 locals {
-  prefix = "pvc-${var.env}-${var.projname}"
-  ca_name = "${local.prefix}-dashboard-${var.location_short}"
+  prefix  = "pvc-${var.env}-${var.projname}"
+  ca_name = "${local.prefix}-state-${var.location_short}"
 
   tags = merge({
     env     = var.env
@@ -19,7 +19,7 @@ locals {
   }, var.tags)
 }
 
-resource "azurerm_container_app" "dashboard" {
+resource "azurerm_container_app" "state_service" {
   lifecycle {
     precondition {
       condition     = var.container_image != ""
@@ -38,50 +38,38 @@ resource "azurerm_container_app" "dashboard" {
     max_replicas = 1
 
     container {
-      name   = "dashboard"
+      name   = "state-service"
       image  = var.container_image
       cpu    = 0.25
       memory = "0.5Gi"
 
-      # Liveness probe: uses the /healthz endpoint served by nginx
       liveness_probe {
         transport = "HTTP"
         path      = "/healthz"
-        port      = 80
+        port      = 8080
       }
 
-      # Readiness probe
       readiness_probe {
         transport = "HTTP"
         path      = "/healthz"
-        port      = 80
+        port      = 8080
       }
 
       env {
-        name  = "GATEWAY_URL"
-        value = var.gateway_url
+        name  = "STATE_KEY_PREFIX"
+        value = var.state_key_prefix
       }
 
       env {
-        name  = "GRAFANA_URL"
-        value = var.grafana_url
-      }
-
-      env {
-        name  = "ENV_NAME"
-        value = var.env
-      }
-
-      env {
-        name  = "STATE_SERVICE_URL"
-        value = var.state_service_url
+        name  = "REDIS_URL"
+        value = var.redis_url
       }
     }
   }
 
   ingress {
-    external_enabled = true
-    target_port      = 80
+    external_enabled = var.external_enabled
+    target_port      = 8080
 
     traffic_weight {
       percentage      = 100

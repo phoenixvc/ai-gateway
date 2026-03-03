@@ -58,3 +58,13 @@ variable "grafana_url" {
     error_message = "grafana_url must be empty or start with https://."
   }
 }
+
+variable "state_service_url" {
+  type        = string
+  description = "Optional state service URL for shared model selection state (empty = local-only mode)"
+  default     = ""
+  validation {
+    condition     = var.state_service_url == "" || can(regex("^https://", var.state_service_url))
+    error_message = "state_service_url must be empty or start with https://."
+  }
+}
