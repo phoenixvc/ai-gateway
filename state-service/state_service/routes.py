@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any
 
 from fastapi import APIRouter, Header, HTTPException, Query
@@ -11,12 +12,16 @@ from .store import memory_store, read_json, redis_client, write_json
 from .utils import now_iso
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 def require_user_id(user_id: str | None) -> str:
     if not user_id or not user_id.strip():
         raise HTTPException(status_code=400, detail="Missing X-User-Id header")
-    return user_id.strip()
+    normalized_user_id = user_id.strip()
+    if ":" in normalized_user_id or any(char.isspace() for char in normalized_user_id):
+        raise HTTPException(status_code=400, detail="X-User-Id contains invalid characters")
+    return normalized_user_id
 
 
 @router.get("/healthz")
@@ -43,9 +48,22 @@ async def get_selection(x_user_id: str | None = Header(default=None, alias="X-Us
     user_id = require_user_id(x_user_id)
 
     if redis_client:
-        raw = await redis_client.get(selection_key(user_id))
+        key = selection_key(user_id)
+        raw = await redis_client.get(key)
         if raw:
-            return json.loads(raw)
+            try:
+                return json.loads(raw)
+            except (json.JSONDecodeError, ValueError) as exc:
+                logger.warning(
+                    "Corrupted selection payload in redis for user_id=%s key=%s: %s",
+                    user_id,
+                    key,
+                    exc,
+                )
+                try:
+                    await redis_client.delete(key)
+                except Exception:
+                    logger.exception("Failed deleting corrupted redis key=%s", key)
     elif user_id in memory_store.users:
         return memory_store.users[user_id]
 
@@ -85,11 +103,22 @@ async def get_selections(
 
     if redis_client:
         user_ids = await redis_client.smembers(USERS_KEY)
+        keys: list[str] = []
         for user_id in user_ids:
-            raw = await redis_client.get(selection_key(user_id))
-            if not raw:
-                continue
-            items.append(json.loads(raw))
+            try:
+                keys.append(selection_key(user_id))
+            except ValueError as exc:
+                logger.warning("Skipping invalid user_id from redis set %s: %s", user_id, exc)
+
+        if keys:
+            raw_values = await redis_client.mget(keys)
+            for key, raw in zip(keys, raw_values):
+                if not raw:
+                    continue
+                try:
+                    items.append(json.loads(raw))
+                except (json.JSONDecodeError, ValueError) as exc:
+                    logger.warning("Skipping corrupted selection JSON for key=%s: %s", key, exc)
     else:
         items = list(memory_store.users.values())
 

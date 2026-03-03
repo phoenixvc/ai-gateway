@@ -71,6 +71,7 @@ module "state_service" {
   container_app_environment_id = module.aigateway.container_app_environment_id
   resource_group_name          = module.aigateway.resource_group_name
   container_image              = var.state_service_container_image
+  external_enabled             = var.state_service_external_enabled
 }
 
 module "dashboard" {

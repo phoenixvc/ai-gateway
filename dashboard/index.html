@@ -96,12 +96,18 @@
   </main>
 
   <script>
-    window.__DASHBOARD_CONFIG__ = {
-      GATEWAY_URL: "${GATEWAY_URL}",
-      GRAFANA_URL: "${GRAFANA_URL}",
-      ENV_NAME: "${ENV_NAME}",
-      STATE_SERVICE_URL: "${STATE_SERVICE_URL}"
-    };
+    window.__DASHBOARD_CONFIG__ = (() => {
+      try {
+        return JSON.parse(atob("${CONFIG_JSON_B64}"));
+      } catch {
+        return {
+          GATEWAY_URL: "",
+          GRAFANA_URL: "",
+          ENV_NAME: "",
+          STATE_SERVICE_URL: ""
+        };
+      }
+    })();
   </script>
   <script src="/app.js"></script>
 </body>

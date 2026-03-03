@@ -51,3 +51,9 @@ variable "state_key_prefix" {
   description = "Namespace prefix for state keys"
   default     = "aigw:state"
 }
+
+variable "external_enabled" {
+  type        = bool
+  description = "Whether state-service ingress should be externally accessible"
+  default     = false
+}

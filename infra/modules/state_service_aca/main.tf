@@ -68,7 +68,7 @@ resource "azurerm_container_app" "state_service" {
   }
 
   ingress {
-    external_enabled = true
+    external_enabled = var.external_enabled
     target_port      = 8080
 
     traffic_weight {

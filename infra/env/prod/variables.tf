@@ -183,6 +183,12 @@ variable "state_service_container_image" {
   default     = ""
 }
 
+variable "state_service_external_enabled" {
+  type        = bool
+  description = "Whether state-service ingress is externally accessible."
+  default     = false
+}
+
 variable "grafana_url" {
   type        = string
   description = "Grafana Cloud stack URL shown as a link in the dashboard (empty = hide button)"

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any
 
 from .config import CATALOG_KEY, REDIS_URL
@@ -9,6 +10,9 @@ try:
     import redis.asyncio as redis
 except Exception:  # pragma: no cover
     redis = None
+
+
+logger = logging.getLogger(__name__)
 
 
 class InMemoryStore:
@@ -28,7 +32,13 @@ redis_client = redis.from_url(REDIS_URL, decode_responses=True) if REDIS_URL and
 async def read_json(key: str) -> dict[str, Any] | None:
     if redis_client:
         raw = await redis_client.get(key)
-        return json.loads(raw) if raw else None
+        if not raw:
+            return None
+        try:
+            return json.loads(raw)
+        except (json.JSONDecodeError, ValueError) as exc:
+            logger.warning("Invalid JSON in redis for key=%s: %s", key, exc)
+            return None
     if key == CATALOG_KEY:
         return memory_store.catalog
     return None
