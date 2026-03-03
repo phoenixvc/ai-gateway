@@ -10,7 +10,7 @@ terraform {
 }
 
 locals {
-  prefix = "pvc-${var.env}-${var.projname}"
+  prefix  = "pvc-${var.env}-${var.projname}"
   ca_name = "${local.prefix}-dashboard-${var.location_short}"
 
   tags = merge({
