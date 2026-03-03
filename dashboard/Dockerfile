@@ -8,10 +8,13 @@ RUN rm /etc/nginx/conf.d/default.conf
 # when the container starts, writing results to /etc/nginx/conf.d/.
 COPY default.conf.template /etc/nginx/templates/default.conf.template
 
-# Copy the HTML template.  The entrypoint script runs envsubst on it before
-# nginx starts so that ${GATEWAY_URL}, ${GRAFANA_URL}, and ${ENV_NAME} are
+# Copy dashboard assets.
+# The entrypoint script runs envsubst on index.html before nginx starts so that
+# ${GATEWAY_URL}, ${GRAFANA_URL}, ${ENV_NAME}, and ${STATE_SERVICE_URL} are
 # replaced with the Container App environment-variable values.
 COPY index.html /usr/share/nginx/html/index.html.template
+COPY styles.css /usr/share/nginx/html/styles.css
+COPY app.js /usr/share/nginx/html/app.js
 
 # Entrypoint script: validates GATEWAY_URL, runs envsubst on the HTML
 # template, then hands off to the official nginx entrypoint.
@@ -22,5 +25,6 @@ RUN chmod +x /docker-entrypoint.d/30-envsubst-html.sh
 ENV GATEWAY_URL=""
 ENV GRAFANA_URL=""
 ENV ENV_NAME=""
+ENV STATE_SERVICE_URL=""
 
 EXPOSE 80
