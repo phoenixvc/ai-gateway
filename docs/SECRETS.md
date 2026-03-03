@@ -43,6 +43,11 @@ You can source values from `infra/grafana` outputs:
 ## Shared state-service secret (optional, recommended when state-service enabled)
 
 - [ ] `STATE_SERVICE_SHARED_TOKEN` *(shared token injected by dashboard proxy and validated by state-service for trusted internal calls)*
+- [ ] `STATE_SERVICE_REGISTRY_PASSWORD` *(GHCR token/PAT with `read:packages` scope for private state-service image pulls)*
+
+When `STATE_SERVICE_CONTAINER_IMAGE` is set to a private image, add repository/environment variable:
+
+- [ ] `STATE_SERVICE_REGISTRY_USERNAME` *(GHCR username/owner; defaults to repository owner when not set)*
 
 When `STATE_SERVICE_CONTAINER_IMAGE` is set (state-service enabled), set this secret to a strong random value.
 
@@ -63,6 +68,9 @@ AZURE_OPENAI_EMBEDDING_ENDPOINT=                # optional: only if embeddings a
 AZURE_OPENAI_EMBEDDING_API_KEY=                 # optional: only if embeddings use a different key
 AIGATEWAY_KEY=<gateway-key>
 STATE_SERVICE_SHARED_TOKEN=<strong-random-token>   # optional, recommended if state-service is enabled
+STATE_SERVICE_REGISTRY_PASSWORD=<ghcr-read-packages-token>   # required for private state-service images
+# Optional repo/environment variable:
+# STATE_SERVICE_REGISTRY_USERNAME=<ghcr-username-or-org>
 ```
 
 ## Validation before deploy

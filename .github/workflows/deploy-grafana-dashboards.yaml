@@ -53,18 +53,32 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          missing=""
+          missing=()
           for v in GRAFANA_URL GRAFANA_SA_TOKEN; do
             if [ -z "${!v:-}" ]; then
-              missing="${missing} ${v}"
+              missing+=("${v}")
             fi
           done
-          if [ -n "${missing}" ]; then
-            echo "::notice::Skipping dashboard import. Missing required values:${missing}."
-            echo "::notice::Set GitHub secrets GRAFANA_URL and GRAFANA_SA_TOKEN."
+          if [ "${#missing[@]}" -gt 0 ]; then
+            missing_pretty=""
+            missing_names=""
+            for v in "${missing[@]}"; do
+              if [ -n "${missing_pretty}" ]; then
+                missing_pretty="${missing_pretty}, "
+              fi
+              missing_pretty="${missing_pretty}\`${v}\`"
+              if [ -n "${missing_names}" ]; then
+                missing_names="${missing_names}, "
+              fi
+              missing_names="${missing_names}${v}"
+            done
+            echo "::notice::Skipping dashboard import. Missing required values: ${missing_pretty}."
+            echo "::notice::Set GitHub secrets: ${missing_names}."
             echo "has-secrets=false" >> "${GITHUB_OUTPUT}"
+            echo "missing-values=${missing_pretty}" >> "${GITHUB_OUTPUT}"
           else
             echo "has-secrets=true" >> "${GITHUB_OUTPUT}"
+            echo "missing-values=" >> "${GITHUB_OUTPUT}"
           fi
 
       - name: Ensure LiteLLM folder exists
@@ -151,7 +165,7 @@ jobs:
           {
             echo "## Grafana dashboard import skipped"
             echo ""
-            echo "Missing required values: \`GRAFANA_URL\`, \`GRAFANA_SA_TOKEN\`."
+            echo "Missing required values: ${{ steps.check_secrets.outputs.missing-values }}."
             echo ""
             echo "- For GitHub Actions: add these as repository/environment secrets."
             echo "- For local setup: add them to \`infra/.env.local\` (copy from \`infra/.env.local.example\`)."

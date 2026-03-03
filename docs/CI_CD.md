@@ -38,6 +38,15 @@ These checks validate state-service availability and write/read behavior after d
 - State-service ingress defaults to internal-only in Terraform (`state_service_external_enabled = false`).
 - When `STATE_SERVICE_SHARED_TOKEN` is set, dashboard proxy injects `X-State-Service-Token` and state-service rejects requests without a valid token.
 
+## Private state-service image auth (GHCR)
+
+When `STATE_SERVICE_CONTAINER_IMAGE` points to a private `ghcr.io` image, deploy jobs pass registry credentials into Terraform so Azure Container Apps can pull the image:
+
+- `STATE_SERVICE_REGISTRY_PASSWORD` (GitHub environment secret; token with `read:packages`)
+- `STATE_SERVICE_REGISTRY_USERNAME` (GitHub variable; optional, defaults to repository owner)
+
+If these are missing for a private image, ACA revision provisioning may fail with `UNAUTHORIZED: authentication required`.
+
 ### Model fallback rules
 
 - Requested models are used first.

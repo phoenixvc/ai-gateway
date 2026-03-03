@@ -74,6 +74,8 @@ module "state_service" {
   external_enabled             = var.state_service_external_enabled
   redis_url                    = var.enable_redis_cache ? format("rediss://:%s@%s:6380/0", module.aigateway.redis_primary_access_key, module.aigateway.redis_hostname) : ""
   state_service_shared_token   = var.state_service_shared_token
+  registry_username            = var.state_service_registry_username
+  registry_password            = var.state_service_registry_password
 }
 
 module "dashboard" {
@@ -99,7 +101,7 @@ output "gateway_url" {
 
 output "dashboard_url" {
   description = "Public HTTPS URL of the gateway dashboard Container App."
-  value = module.dashboard.dashboard_url
+  value       = module.dashboard.dashboard_url
 }
 
 output "state_service_url" {
