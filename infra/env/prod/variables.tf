@@ -189,6 +189,13 @@ variable "state_service_external_enabled" {
   default     = false
 }
 
+variable "state_service_shared_token" {
+  type        = string
+  description = "Optional shared token for trusted dashboard-to-state-service proxy calls."
+  default     = ""
+  sensitive   = true
+}
+
 variable "grafana_url" {
   type        = string
   description = "Grafana Cloud stack URL shown as a link in the dashboard (empty = hide button)"

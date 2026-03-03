@@ -76,6 +76,11 @@ resource "azurerm_container_app" "dashboard" {
         name  = "STATE_SERVICE_URL"
         value = var.state_service_url
       }
+
+      env {
+        name  = "STATE_SERVICE_SHARED_TOKEN"
+        value = var.state_service_shared_token
+      }
     }
   }
 

@@ -64,6 +64,11 @@ resource "azurerm_container_app" "state_service" {
         name  = "REDIS_URL"
         value = var.redis_url
       }
+
+      env {
+        name  = "STATE_SERVICE_SHARED_TOKEN"
+        value = var.state_service_shared_token
+      }
     }
   }
 

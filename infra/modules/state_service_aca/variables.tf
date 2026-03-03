@@ -52,6 +52,13 @@ variable "state_key_prefix" {
   default     = "aigw:state"
 }
 
+variable "state_service_shared_token" {
+  type        = string
+  description = "Optional shared token required from trusted proxy"
+  default     = ""
+  sensitive   = true
+}
+
 variable "external_enabled" {
   type        = bool
   description = "Whether state-service ingress should be externally accessible"

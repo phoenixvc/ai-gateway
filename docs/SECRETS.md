@@ -40,6 +40,12 @@ You can source values from `infra/grafana` outputs:
 - `terraform -chdir=infra/grafana output -raw stack_url`
 - `terraform -chdir=infra/grafana output -raw github_actions_token`
 
+## Shared state-service secret (optional, recommended when state-service enabled)
+
+- [ ] `STATE_SERVICE_SHARED_TOKEN` *(shared token injected by dashboard proxy and validated by state-service for trusted internal calls)*
+
+When `STATE_SERVICE_CONTAINER_IMAGE` is set (state-service enabled), set this secret to a strong random value.
+
 ## Copy/paste template
 
 Use this block as a setup checklist when creating/updating `dev`, `uat`, and `prod`:
@@ -56,6 +62,7 @@ AZURE_OPENAI_API_KEY=<key>
 AZURE_OPENAI_EMBEDDING_ENDPOINT=                # optional: only if embeddings are on a different resource
 AZURE_OPENAI_EMBEDDING_API_KEY=                 # optional: only if embeddings use a different key
 AIGATEWAY_KEY=<gateway-key>
+STATE_SERVICE_SHARED_TOKEN=<strong-random-token>   # optional, recommended if state-service is enabled
 ```
 
 ## Validation before deploy

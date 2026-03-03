@@ -25,6 +25,19 @@ The composite action `.github/actions/smoke-test-gateway` performs:
 - Candidate probing for embeddings if the requested model fails.
 - Azure OpenAI deployment discovery fallback using configured endpoint/key when needed.
 
+Additionally, when `STATE_SERVICE_CONTAINER_IMAGE` is configured, `deploy.yaml` runs shared-state smoke checks via dashboard proxy endpoints:
+
+- `GET /api/state/catalog`
+- `PUT /api/state/selection`
+- `GET /api/state/selection`
+
+These checks validate state-service availability and write/read behavior after deploy.
+
+## State-service security mode
+
+- State-service ingress defaults to internal-only in Terraform (`state_service_external_enabled = false`).
+- When `STATE_SERVICE_SHARED_TOKEN` is set, dashboard proxy injects `X-State-Service-Token` and state-service rejects requests without a valid token.
+
 ### Model fallback rules
 
 - Requested models are used first.

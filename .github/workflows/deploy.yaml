@@ -26,6 +26,7 @@ env:
   # repository/environment variable to pin a specific digest; falls back to :latest)
   TF_VAR_dashboard_container_image: ${{ vars.DASHBOARD_CONTAINER_IMAGE || 'ghcr.io/phoenixvc/ai-gateway-dashboard:latest' }}
   TF_VAR_state_service_container_image: ${{ vars.STATE_SERVICE_CONTAINER_IMAGE || '' }}
+  TF_VAR_state_service_shared_token: ${{ secrets.STATE_SERVICE_SHARED_TOKEN || '' }}
   TF_VAR_grafana_url: ${{ secrets.GRAFANA_URL || '' }}
 
 jobs:
