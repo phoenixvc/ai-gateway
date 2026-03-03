@@ -48,20 +48,27 @@ jobs:
       GRAFANA_PROMETHEUS_DATASOURCE: ${{ vars.GRAFANA_PROMETHEUS_DATASOURCE || 'grafana-prom' }}
 
     steps:
-      - name: Validate required secrets
+      - name: Check required secrets
+        id: check_secrets
         shell: bash
         run: |
           set -euo pipefail
-          missing=0
+          missing=""
           for v in GRAFANA_URL GRAFANA_SA_TOKEN; do
             if [ -z "${!v:-}" ]; then
-              echo "::error::Missing required secret: ${v}"
-              missing=1
+              missing="${missing} ${v}"
             fi
           done
-          [ "${missing}" -eq 0 ] || exit 1
+          if [ -n "${missing}" ]; then
+            echo "::notice::Skipping dashboard import. Missing required values:${missing}."
+            echo "::notice::Set GitHub secrets GRAFANA_URL and GRAFANA_SA_TOKEN."
+            echo "has-secrets=false" >> "${GITHUB_OUTPUT}"
+          else
+            echo "has-secrets=true" >> "${GITHUB_OUTPUT}"
+          fi
 
       - name: Ensure LiteLLM folder exists
+        if: steps.check_secrets.outputs.has-secrets == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -81,6 +88,7 @@ jobs:
           fi
 
       - name: Import LiteLLM dashboard (ID 24055) and LiteLLM Trace dashboard (ID 24064)
+        if: steps.check_secrets.outputs.has-secrets == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -135,3 +143,16 @@ jobs:
 
           import_dashboard 24055
           import_dashboard 24064
+
+      - name: Summary when secrets are missing
+        if: steps.check_secrets.outputs.has-secrets != 'true'
+        shell: bash
+        run: |
+          {
+            echo "## Grafana dashboard import skipped"
+            echo ""
+            echo "Missing required values: \`GRAFANA_URL\`, \`GRAFANA_SA_TOKEN\`."
+            echo ""
+            echo "- For GitHub Actions: add these as repository/environment secrets."
+            echo "- For local setup: add them to \`infra/.env.local\` (copy from \`infra/.env.local.example\`)."
+          } >> "${GITHUB_STEP_SUMMARY}"
