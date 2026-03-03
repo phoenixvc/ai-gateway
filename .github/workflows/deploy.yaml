@@ -249,6 +249,10 @@ jobs:
         id: gw
         run: echo "url=$(terraform output -raw gateway_url)" >> $GITHUB_OUTPUT
 
+      - name: Get dashboard URL
+        id: db
+        run: echo "url=$(terraform output -raw dashboard_url)" >> $GITHUB_OUTPUT
+
       - name: Runtime diagnostics (Container App config)
         shell: bash
         run: |
@@ -296,6 +300,26 @@ jobs:
           aoai_api_key: ${{ env.TF_VAR_azure_openai_api_key }}
           max_attempts: "3"
           retry_sleep: "10"
+
+      - name: Smoke test shared state API (dashboard proxy)
+        if: env.TF_VAR_state_service_container_image != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          DASHBOARD_URL="${{ steps.db.outputs.url }}"
+          TEST_USER="ci-smoke-${TF_VAR_env}"
+
+          curl -fsS "${DASHBOARD_URL}/api/state/catalog" > /tmp/catalog.json
+
+          curl -fsS -X PUT "${DASHBOARD_URL}/api/state/selection" \
+            -H "Content-Type: application/json" \
+            -H "X-User-Id: ${TEST_USER}" \
+            -d '{"enabled":true,"selected_model":"'"${TF_VAR_codex_model}"'"}' > /tmp/selection-put.json
+
+          curl -fsS "${DASHBOARD_URL}/api/state/selection" \
+            -H "X-User-Id: ${TEST_USER}" > /tmp/selection-get.json
+
+          grep -q '"enabled": true' /tmp/selection-get.json
 
   deploy-uat:
     name: Deploy uat
@@ -403,6 +427,10 @@ jobs:
         id: gw
         run: echo "url=$(terraform output -raw gateway_url)" >> $GITHUB_OUTPUT
 
+      - name: Get dashboard URL
+        id: db
+        run: echo "url=$(terraform output -raw dashboard_url)" >> $GITHUB_OUTPUT
+
       - name: Runtime diagnostics (Container App config)
         shell: bash
         run: |
@@ -450,6 +478,26 @@ jobs:
           aoai_api_key: ${{ env.TF_VAR_azure_openai_api_key }}
           max_attempts: "3"
           retry_sleep: "10"
+
+      - name: Smoke test shared state API (dashboard proxy)
+        if: env.TF_VAR_state_service_container_image != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          DASHBOARD_URL="${{ steps.db.outputs.url }}"
+          TEST_USER="ci-smoke-${TF_VAR_env}"
+
+          curl -fsS "${DASHBOARD_URL}/api/state/catalog" > /tmp/catalog.json
+
+          curl -fsS -X PUT "${DASHBOARD_URL}/api/state/selection" \
+            -H "Content-Type: application/json" \
+            -H "X-User-Id: ${TEST_USER}" \
+            -d '{"enabled":true,"selected_model":"'"${TF_VAR_codex_model}"'"}' > /tmp/selection-put.json
+
+          curl -fsS "${DASHBOARD_URL}/api/state/selection" \
+            -H "X-User-Id: ${TEST_USER}" > /tmp/selection-get.json
+
+          grep -q '"enabled": true' /tmp/selection-get.json
 
   deploy-prod:
     name: Deploy prod
@@ -561,6 +609,10 @@ jobs:
         id: gw
         run: echo "url=$(terraform output -raw gateway_url)" >> $GITHUB_OUTPUT
 
+      - name: Get dashboard URL
+        id: db
+        run: echo "url=$(terraform output -raw dashboard_url)" >> $GITHUB_OUTPUT
+
       - name: Runtime diagnostics (Container App config)
         shell: bash
         run: |
@@ -610,3 +662,23 @@ jobs:
           retry_sleep: "15" # prod: longer cold-start; allow more time between retries
           models_wait_attempts: "3" # prod: wait longer for LiteLLM to register healthy deployments
           models_wait_sleep: "30"
+
+      - name: Smoke test shared state API (dashboard proxy)
+        if: env.TF_VAR_state_service_container_image != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          DASHBOARD_URL="${{ steps.db.outputs.url }}"
+          TEST_USER="ci-smoke-${TF_VAR_env}"
+
+          curl -fsS "${DASHBOARD_URL}/api/state/catalog" > /tmp/catalog.json
+
+          curl -fsS -X PUT "${DASHBOARD_URL}/api/state/selection" \
+            -H "Content-Type: application/json" \
+            -H "X-User-Id: ${TEST_USER}" \
+            -d '{"enabled":true,"selected_model":"'"${TF_VAR_codex_model}"'"}' > /tmp/selection-put.json
+
+          curl -fsS "${DASHBOARD_URL}/api/state/selection" \
+            -H "X-User-Id: ${TEST_USER}" > /tmp/selection-get.json
+
+          grep -q '"enabled": true' /tmp/selection-get.json

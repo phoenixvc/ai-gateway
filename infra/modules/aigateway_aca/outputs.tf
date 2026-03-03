@@ -19,6 +19,12 @@ output "redis_hostname" {
   description = "Azure Cache for Redis hostname (null when enable_redis_cache = false)."
 }
 
+output "redis_primary_access_key" {
+  value       = try(azurerm_redis_cache.cache[0].primary_access_key, null)
+  description = "Azure Cache for Redis primary access key (null when enable_redis_cache = false)."
+  sensitive   = true
+}
+
 output "container_app_environment_id" {
   description = "ID of the Container App Environment — used by sibling modules (e.g. dashboard_aca) to deploy into the same environment."
   value       = azurerm_container_app_environment.cae.id

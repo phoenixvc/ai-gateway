@@ -72,6 +72,7 @@ module "state_service" {
   resource_group_name          = module.aigateway.resource_group_name
   container_image              = var.state_service_container_image
   external_enabled             = var.state_service_external_enabled
+  redis_url                    = var.enable_redis_cache ? format("rediss://:%s@%s:6380/0", module.aigateway.redis_primary_access_key, module.aigateway.redis_hostname) : ""
 }
 
 module "dashboard" {
