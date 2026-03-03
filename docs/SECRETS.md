@@ -28,6 +28,18 @@ Add these as **Environment secrets** in GitHub:
 - [ ] `AZURE_OPENAI_EMBEDDING_API_KEY` *(optional — set only if embeddings use a different API key)*
 - [ ] `AIGATEWAY_KEY`
 
+## Grafana dashboard deployment secrets (prod)
+
+These are required by `.github/workflows/deploy-grafana-dashboards.yaml`:
+
+- [ ] `GRAFANA_URL` *(Grafana Cloud stack URL, e.g. `https://pvc-aigateway.grafana.net`)*
+- [ ] `GRAFANA_SA_TOKEN` *(Grafana service account token with dashboard import permissions)*
+
+You can source values from `infra/grafana` outputs:
+
+- `terraform -chdir=infra/grafana output -raw stack_url`
+- `terraform -chdir=infra/grafana output -raw github_actions_token`
+
 ## Copy/paste template
 
 Use this block as a setup checklist when creating/updating `dev`, `uat`, and `prod`:
