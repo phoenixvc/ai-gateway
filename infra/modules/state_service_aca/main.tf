@@ -10,8 +10,9 @@ terraform {
 }
 
 locals {
-  prefix  = "pvc-${var.env}-${var.projname}"
-  ca_name = "${local.prefix}-state-${var.location_short}"
+  prefix            = "pvc-${var.env}-${var.projname}"
+  ca_name           = "${local.prefix}-state-${var.location_short}"
+  use_registry_auth = var.registry_username != "" && var.registry_password != ""
 
   tags = merge({
     env     = var.env
@@ -32,6 +33,23 @@ resource "azurerm_container_app" "state_service" {
   resource_group_name          = var.resource_group_name
   revision_mode                = "Single"
   tags                         = local.tags
+
+  dynamic "secret" {
+    for_each = local.use_registry_auth ? [1] : []
+    content {
+      name  = "registry-password"
+      value = var.registry_password
+    }
+  }
+
+  dynamic "registry" {
+    for_each = local.use_registry_auth ? [1] : []
+    content {
+      server               = var.registry_server
+      username             = var.registry_username
+      password_secret_name = "registry-password"
+    }
+  }
 
   template {
     min_replicas = 1

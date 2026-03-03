@@ -64,3 +64,22 @@ variable "external_enabled" {
   description = "Whether state-service ingress should be externally accessible"
   default     = false
 }
+
+variable "registry_server" {
+  type        = string
+  description = "Container registry server for state-service image pulls"
+  default     = "ghcr.io"
+}
+
+variable "registry_username" {
+  type        = string
+  description = "Optional container registry username for private image pulls"
+  default     = ""
+}
+
+variable "registry_password" {
+  type        = string
+  description = "Optional container registry password/token for private image pulls"
+  default     = ""
+  sensitive   = true
+}
