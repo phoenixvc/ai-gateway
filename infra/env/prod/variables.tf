@@ -177,6 +177,12 @@ variable "dashboard_container_image" {
   default     = "ghcr.io/phoenixvc/ai-gateway-dashboard:latest"
 }
 
+variable "state_service_container_image" {
+  type        = string
+  description = "Optional state-service container image; leave empty to disable state-service deployment."
+  default     = ""
+}
+
 variable "grafana_url" {
   type        = string
   description = "Grafana Cloud stack URL shown as a link in the dashboard (empty = hide button)"

@@ -59,6 +59,20 @@ module "aigateway" {
   tpm_limit       = var.tpm_limit
 }
 
+module "state_service" {
+  count  = var.state_service_container_image == "" ? 0 : 1
+  source = "../../modules/state_service_aca"
+
+  env            = var.env
+  projname       = var.projname
+  location_short = var.location_short
+  tags           = var.tags
+
+  container_app_environment_id = module.aigateway.container_app_environment_id
+  resource_group_name          = module.aigateway.resource_group_name
+  container_image              = var.state_service_container_image
+}
+
 module "dashboard" {
   source = "../../modules/dashboard_aca"
 
@@ -72,6 +86,7 @@ module "dashboard" {
   container_image              = var.dashboard_container_image
   gateway_url                  = module.aigateway.gateway_url
   grafana_url                  = var.grafana_url
+  state_service_url            = var.state_service_container_image == "" ? "" : module.state_service[0].state_service_url
 }
 
 output "gateway_url" {
@@ -81,4 +96,9 @@ output "gateway_url" {
 output "dashboard_url" {
   description = "Public HTTPS URL of the gateway dashboard Container App."
   value = module.dashboard.dashboard_url
+}
+
+output "state_service_url" {
+  description = "Public HTTPS URL of the shared state service (null when disabled)."
+  value       = var.state_service_container_image == "" ? null : module.state_service[0].state_service_url
 }
