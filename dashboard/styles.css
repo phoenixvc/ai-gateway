@@ -67,6 +67,17 @@ header h1 {
   color: var(--accent);
 }
 
+#gateway-link:focus {
+  color: var(--accent);
+}
+
+#gateway-link:focus-visible {
+  color: var(--accent);
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 #grafana-btn {
   background: none;
   border: 1px solid var(--border);
@@ -198,6 +209,17 @@ main {
   cursor: pointer;
 }
 
+#model-selection-toggle:focus,
+#model-selection-toggle:focus-visible,
+#model-selection-toggle:focus-within,
+#auto-refresh-toggle:focus,
+#auto-refresh-toggle:focus-visible,
+#auto-refresh-toggle:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 #model-select {
   background: var(--bg);
   border: 1px solid var(--border);
@@ -206,6 +228,17 @@ main {
   padding: 4px 8px;
   font-size: 12px;
   min-width: 220px;
+}
+
+#model-select:focus {
+  border-color: var(--accent);
+  outline: 2px solid transparent;
+  box-shadow: 0 0 0 2px rgba(91, 141, 238, 0.35);
+}
+
+#model-select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 #model-select:disabled {

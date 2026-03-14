@@ -25,7 +25,7 @@ The composite action `.github/actions/smoke-test-gateway` performs:
 - Candidate probing for embeddings if the requested model fails.
 - Azure OpenAI deployment discovery fallback using configured endpoint/key when needed.
 
-Additionally, when `STATE_SERVICE_CONTAINER_IMAGE` is configured, `deploy.yaml` runs shared-state smoke checks via dashboard proxy endpoints:
+Additionally, when `STATE_SERVICE_CONTAINER_IMAGE` is configured, `deploy.yaml` runs state-service smoke checks via dashboard proxy endpoints:
 
 - `GET /api/state/catalog`
 - `PUT /api/state/selection`
@@ -45,7 +45,7 @@ When `STATE_SERVICE_CONTAINER_IMAGE` points to a private `ghcr.io` image, deploy
 - `STATE_SERVICE_REGISTRY_PASSWORD` (GitHub environment secret; token with `read:packages`)
 - `STATE_SERVICE_REGISTRY_USERNAME` (GitHub variable; optional, defaults to repository owner)
 
-If these are missing for a private image, ACA revision provisioning may fail with `UNAUTHORIZED: authentication required`.
+If these are missing for a private image, Azure Container Apps (ACA) revision provisioning may fail with `UNAUTHORIZED: authentication required`.
 
 ### Model fallback rules
 

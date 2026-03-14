@@ -44,6 +44,7 @@ variable "redis_url" {
   type        = string
   description = "Optional Redis URL (empty = in-memory store)"
   default     = ""
+  sensitive   = true
 }
 
 variable "state_key_prefix" {

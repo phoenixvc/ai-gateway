@@ -10,8 +10,9 @@ terraform {
 }
 
 locals {
-  prefix  = "pvc-${var.env}-${var.projname}"
-  ca_name = "${local.prefix}-dashboard-${var.location_short}"
+  prefix           = "pvc-${var.env}-${var.projname}"
+  ca_name          = "${local.prefix}-dashboard-${var.location_short}"
+  use_shared_token = trim(var.state_service_shared_token) != ""
 
   tags = merge({
     env     = var.env
@@ -32,6 +33,14 @@ resource "azurerm_container_app" "dashboard" {
   resource_group_name          = var.resource_group_name
   revision_mode                = "Single"
   tags                         = local.tags
+
+  dynamic "secret" {
+    for_each = local.use_shared_token ? [1] : []
+    content {
+      name  = "state-service-shared-token"
+      value = var.state_service_shared_token
+    }
+  }
 
   template {
     min_replicas = 1
@@ -77,9 +86,20 @@ resource "azurerm_container_app" "dashboard" {
         value = var.state_service_url
       }
 
-      env {
-        name  = "STATE_SERVICE_SHARED_TOKEN"
-        value = var.state_service_shared_token
+      dynamic "env" {
+        for_each = local.use_shared_token ? [1] : []
+        content {
+          name        = "STATE_SERVICE_SHARED_TOKEN"
+          secret_name = "state-service-shared-token"
+        }
+      }
+
+      dynamic "env" {
+        for_each = local.use_shared_token ? [] : [1]
+        content {
+          name  = "STATE_SERVICE_SHARED_TOKEN"
+          value = ""
+        }
       }
     }
   }

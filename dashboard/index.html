@@ -103,9 +103,14 @@
 
     <script>
       window.__DASHBOARD_CONFIG__ = (() => {
+        const rawConfigB64 = "${CONFIG_JSON_B64}";
         try {
-          return JSON.parse(atob("${CONFIG_JSON_B64}"));
-        } catch {
+          return JSON.parse(atob(rawConfigB64));
+        } catch (error) {
+          console.error("Failed to parse dashboard runtime config", {
+            error,
+            CONFIG_JSON_B64: rawConfigB64,
+          });
           return {
             GATEWAY_URL: "",
             GRAFANA_URL: "",

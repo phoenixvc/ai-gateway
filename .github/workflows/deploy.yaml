@@ -254,7 +254,7 @@ jobs:
 
       - name: Get dashboard URL
         id: db
-        run: echo "url=$(terraform output -raw dashboard_url)" >> $GITHUB_OUTPUT
+        run: echo "url=$(terraform output -raw dashboard_url 2>/dev/null || true)" >> $GITHUB_OUTPUT
 
       - name: Runtime diagnostics (Container App config)
         shell: bash
@@ -312,17 +312,17 @@ jobs:
           DASHBOARD_URL="${{ steps.db.outputs.url }}"
           TEST_USER="ci-smoke-${TF_VAR_env}"
 
-          curl -fsS "${DASHBOARD_URL}/api/state/catalog" > /tmp/catalog.json
+          curl -fsS --connect-timeout 5 --max-time 15 "${DASHBOARD_URL}/api/state/catalog" > /tmp/catalog.json
 
-          curl -fsS -X PUT "${DASHBOARD_URL}/api/state/selection" \
+          curl -fsS --connect-timeout 5 --max-time 15 -X PUT "${DASHBOARD_URL}/api/state/selection" \
             -H "Content-Type: application/json" \
             -H "X-User-Id: ${TEST_USER}" \
             -d '{"enabled":true,"selected_model":"'"${TF_VAR_codex_model}"'"}' > /tmp/selection-put.json
 
-          curl -fsS "${DASHBOARD_URL}/api/state/selection" \
+          curl -fsS --connect-timeout 5 --max-time 15 "${DASHBOARD_URL}/api/state/selection" \
             -H "X-User-Id: ${TEST_USER}" > /tmp/selection-get.json
 
-          grep -q '"enabled": true' /tmp/selection-get.json
+          jq -e '.enabled == true' /tmp/selection-get.json > /dev/null
 
   deploy-uat:
     name: Deploy uat
@@ -432,7 +432,7 @@ jobs:
 
       - name: Get dashboard URL
         id: db
-        run: echo "url=$(terraform output -raw dashboard_url)" >> $GITHUB_OUTPUT
+        run: echo "url=$(terraform output -raw dashboard_url 2>/dev/null || true)" >> $GITHUB_OUTPUT
 
       - name: Runtime diagnostics (Container App config)
         shell: bash
@@ -490,17 +490,17 @@ jobs:
           DASHBOARD_URL="${{ steps.db.outputs.url }}"
           TEST_USER="ci-smoke-${TF_VAR_env}"
 
-          curl -fsS "${DASHBOARD_URL}/api/state/catalog" > /tmp/catalog.json
+          curl -fsS --connect-timeout 5 --max-time 15 "${DASHBOARD_URL}/api/state/catalog" > /tmp/catalog.json
 
-          curl -fsS -X PUT "${DASHBOARD_URL}/api/state/selection" \
+          curl -fsS --connect-timeout 5 --max-time 15 -X PUT "${DASHBOARD_URL}/api/state/selection" \
             -H "Content-Type: application/json" \
             -H "X-User-Id: ${TEST_USER}" \
             -d '{"enabled":true,"selected_model":"'"${TF_VAR_codex_model}"'"}' > /tmp/selection-put.json
 
-          curl -fsS "${DASHBOARD_URL}/api/state/selection" \
+          curl -fsS --connect-timeout 5 --max-time 15 "${DASHBOARD_URL}/api/state/selection" \
             -H "X-User-Id: ${TEST_USER}" > /tmp/selection-get.json
 
-          grep -q '"enabled": true' /tmp/selection-get.json
+          jq -e '.enabled == true' /tmp/selection-get.json > /dev/null
 
   deploy-prod:
     name: Deploy prod
@@ -614,7 +614,7 @@ jobs:
 
       - name: Get dashboard URL
         id: db
-        run: echo "url=$(terraform output -raw dashboard_url)" >> $GITHUB_OUTPUT
+        run: echo "url=$(terraform output -raw dashboard_url 2>/dev/null || true)" >> $GITHUB_OUTPUT
 
       - name: Runtime diagnostics (Container App config)
         shell: bash
@@ -674,14 +674,14 @@ jobs:
           DASHBOARD_URL="${{ steps.db.outputs.url }}"
           TEST_USER="ci-smoke-${TF_VAR_env}"
 
-          curl -fsS "${DASHBOARD_URL}/api/state/catalog" > /tmp/catalog.json
+          curl -fsS --connect-timeout 5 --max-time 15 "${DASHBOARD_URL}/api/state/catalog" > /tmp/catalog.json
 
-          curl -fsS -X PUT "${DASHBOARD_URL}/api/state/selection" \
+          curl -fsS --connect-timeout 5 --max-time 15 -X PUT "${DASHBOARD_URL}/api/state/selection" \
             -H "Content-Type: application/json" \
             -H "X-User-Id: ${TEST_USER}" \
             -d '{"enabled":true,"selected_model":"'"${TF_VAR_codex_model}"'"}' > /tmp/selection-put.json
 
-          curl -fsS "${DASHBOARD_URL}/api/state/selection" \
+          curl -fsS --connect-timeout 5 --max-time 15 "${DASHBOARD_URL}/api/state/selection" \
             -H "X-User-Id: ${TEST_USER}" > /tmp/selection-get.json
 
-          grep -q '"enabled": true' /tmp/selection-get.json
+          jq -e '.enabled == true' /tmp/selection-get.json > /dev/null
