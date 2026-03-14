@@ -42,11 +42,11 @@ az ad app list --display-name pvc-shared-github-actions-oidc --query "[0].appId"
 
 ### Subject formats
 
-| Workflow config | OIDC subject |
-|-----------------|--------------|
-| `environment: dev` | `repo:phoenixvc/ai-gateway:environment:dev` |
-| `environment: uat` | `repo:phoenixvc/ai-gateway:environment:uat` |
-| `environment: prod` | `repo:phoenixvc/ai-gateway:environment:prod` |
+| Workflow config      | OIDC subject                                    |
+| -------------------- | ----------------------------------------------- |
+| `environment: dev`   | `repo:phoenixvc/ai-gateway:environment:dev`     |
+| `environment: uat`   | `repo:phoenixvc/ai-gateway:environment:uat`     |
+| `environment: prod`  | `repo:phoenixvc/ai-gateway:environment:prod`    |
 | Branch only (no env) | `repo:phoenixvc/ai-gateway:ref:refs/heads/main` |
 
 The federated credential **Subject** in Azure must match exactly.

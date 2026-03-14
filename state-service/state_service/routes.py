@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import hmac
 import json
 import logging
 from typing import Any
 
 from fastapi import APIRouter, Header, HTTPException, Query
 
-from .config import CATALOG_KEY, USERS_KEY, selection_key
+from .config import CATALOG_KEY, STATE_SERVICE_SHARED_TOKEN, USERS_KEY, selection_key
 from .schemas import CatalogPayload, SelectionPayload
 from .store import memory_store, read_json, redis_client, write_json
 from .utils import now_iso
@@ -24,19 +25,31 @@ def require_user_id(user_id: str | None) -> str:
     return normalized_user_id
 
 
+def require_trusted_proxy_token(token: str | None) -> None:
+    if not STATE_SERVICE_SHARED_TOKEN:
+        return
+    if not token or not hmac.compare_digest(token, STATE_SERVICE_SHARED_TOKEN):
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+
 @router.get("/healthz")
 async def healthz() -> dict[str, str]:
     return {"status": "ok", "backend": "redis" if redis_client else "memory"}
 
 
 @router.get("/state/catalog")
-async def get_catalog() -> dict[str, Any]:
+async def get_catalog(x_state_service_token: str | None = Header(default=None, alias="X-State-Service-Token")) -> dict[str, Any]:
+    require_trusted_proxy_token(x_state_service_token)
     catalog = await read_json(CATALOG_KEY)
     return catalog or {"models": [], "status": "unavailable", "updated_at": None}
 
 
 @router.put("/state/catalog")
-async def put_catalog(payload: CatalogPayload) -> dict[str, Any]:
+async def put_catalog(
+    payload: CatalogPayload,
+    x_state_service_token: str | None = Header(default=None, alias="X-State-Service-Token"),
+) -> dict[str, Any]:
+    require_trusted_proxy_token(x_state_service_token)
     models = sorted({model.strip() for model in payload.models if model and model.strip()})
     catalog = {"models": models, "status": payload.status, "updated_at": now_iso()}
     await write_json(CATALOG_KEY, catalog)
@@ -44,7 +57,11 @@ async def put_catalog(payload: CatalogPayload) -> dict[str, Any]:
 
 
 @router.get("/state/selection")
-async def get_selection(x_user_id: str | None = Header(default=None, alias="X-User-Id")) -> dict[str, Any]:
+async def get_selection(
+    x_user_id: str | None = Header(default=None, alias="X-User-Id"),
+    x_state_service_token: str | None = Header(default=None, alias="X-State-Service-Token"),
+) -> dict[str, Any]:
+    require_trusted_proxy_token(x_state_service_token)
     user_id = require_user_id(x_user_id)
 
     if redis_client:
@@ -74,7 +91,9 @@ async def get_selection(x_user_id: str | None = Header(default=None, alias="X-Us
 async def put_selection(
     payload: SelectionPayload,
     x_user_id: str | None = Header(default=None, alias="X-User-Id"),
+    x_state_service_token: str | None = Header(default=None, alias="X-State-Service-Token"),
 ) -> dict[str, Any]:
+    require_trusted_proxy_token(x_state_service_token)
     user_id = require_user_id(x_user_id)
     value = {
         "user_id": user_id,
@@ -97,7 +116,9 @@ async def get_selections(
     limit: int = Query(default=10, ge=1, le=100),
     include_self: bool = Query(default=False),
     x_user_id: str | None = Header(default=None, alias="X-User-Id"),
+    x_state_service_token: str | None = Header(default=None, alias="X-State-Service-Token"),
 ) -> dict[str, Any]:
+    require_trusted_proxy_token(x_state_service_token)
     current_user = require_user_id(x_user_id)
     items: list[dict[str, Any]] = []
 

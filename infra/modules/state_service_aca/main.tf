@@ -10,8 +10,10 @@ terraform {
 }
 
 locals {
-  prefix  = "pvc-${var.env}-${var.projname}"
-  ca_name = "${local.prefix}-state-${var.location_short}"
+  prefix            = "pvc-${var.env}-${var.projname}"
+  ca_name           = "${local.prefix}-state-${var.location_short}"
+  use_registry_auth = var.registry_username != "" && var.registry_password != ""
+  use_shared_token  = trim(var.state_service_shared_token) != ""
 
   tags = merge({
     env     = var.env
@@ -32,6 +34,31 @@ resource "azurerm_container_app" "state_service" {
   resource_group_name          = var.resource_group_name
   revision_mode                = "Single"
   tags                         = local.tags
+
+  dynamic "secret" {
+    for_each = local.use_registry_auth ? [1] : []
+    content {
+      name  = "registry-password"
+      value = var.registry_password
+    }
+  }
+
+  dynamic "secret" {
+    for_each = local.use_shared_token ? [1] : []
+    content {
+      name  = "state-service-shared-token"
+      value = var.state_service_shared_token
+    }
+  }
+
+  dynamic "registry" {
+    for_each = local.use_registry_auth ? [1] : []
+    content {
+      server               = var.registry_server
+      username             = var.registry_username
+      password_secret_name = "registry-password"
+    }
+  }
 
   template {
     min_replicas = 1
@@ -63,6 +90,22 @@ resource "azurerm_container_app" "state_service" {
       env {
         name  = "REDIS_URL"
         value = var.redis_url
+      }
+
+      dynamic "env" {
+        for_each = local.use_shared_token ? [1] : []
+        content {
+          name        = "STATE_SERVICE_SHARED_TOKEN"
+          secret_name = "state-service-shared-token"
+        }
+      }
+
+      dynamic "env" {
+        for_each = local.use_shared_token ? [] : [1]
+        content {
+          name  = "STATE_SERVICE_SHARED_TOKEN"
+          value = ""
+        }
       }
     }
   }

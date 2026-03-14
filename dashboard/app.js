@@ -6,8 +6,34 @@ const {
 } = window.__DASHBOARD_CONFIG__ || {};
 
 const MAX_POINTS = 20;
-const reqHistory = { labels: [], datasets: [{ label: "Requests", data: [], borderColor: "#5b8dee", backgroundColor: "rgba(91,141,238,.15)", tension: .3, fill: true, pointRadius: 3 }] };
-const tokHistory = { labels: [], datasets: [{ label: "Tokens", data: [], borderColor: "#3ecf8e", backgroundColor: "rgba(62,207,142,.15)", tension: .3, fill: true, pointRadius: 3 }] };
+const reqHistory = {
+  labels: [],
+  datasets: [
+    {
+      label: "Requests",
+      data: [],
+      borderColor: "#5b8dee",
+      backgroundColor: "rgba(91,141,238,.15)",
+      tension: 0.3,
+      fill: true,
+      pointRadius: 3,
+    },
+  ],
+};
+const tokHistory = {
+  labels: [],
+  datasets: [
+    {
+      label: "Tokens",
+      data: [],
+      borderColor: "#3ecf8e",
+      backgroundColor: "rgba(62,207,142,.15)",
+      tension: 0.3,
+      fill: true,
+      pointRadius: 3,
+    },
+  ],
+};
 
 let reqChart;
 let tokChart;
@@ -101,20 +127,31 @@ const chartDefaults = {
     plugins: { legend: { display: false } },
     scales: {
       x: { ticks: { color: "#94a3b8", font: { size: 11 } }, grid: { color: "#2d3147" } },
-      y: { ticks: { color: "#94a3b8", font: { size: 11 } }, grid: { color: "#2d3147" }, beginAtZero: true },
+      y: {
+        ticks: { color: "#94a3b8", font: { size: 11 } },
+        grid: { color: "#2d3147" },
+        beginAtZero: true,
+      },
     },
   },
 };
 
 function initCharts() {
   if (typeof Chart === "undefined") {
-    document.querySelectorAll(".chart-card").forEach(card => {
-      card.innerHTML = '<p style="color:var(--muted);font-size:12px;text-align:center;padding:20px">Charts unavailable (CDN blocked)</p>';
+    document.querySelectorAll(".chart-card").forEach((card) => {
+      card.innerHTML =
+        '<p style="color:var(--muted);font-size:12px;text-align:center;padding:20px">Charts unavailable (CDN blocked)</p>';
     });
     return;
   }
-  reqChart = new Chart(document.getElementById("req-chart"), { ...chartDefaults, data: reqHistory });
-  tokChart = new Chart(document.getElementById("tok-chart"), { ...chartDefaults, data: tokHistory });
+  reqChart = new Chart(document.getElementById("req-chart"), {
+    ...chartDefaults,
+    data: reqHistory,
+  });
+  tokChart = new Chart(document.getElementById("tok-chart"), {
+    ...chartDefaults,
+    data: tokHistory,
+  });
 }
 
 function pushPoint(history, chart, label, value) {
@@ -145,7 +182,9 @@ function updateModelSelectionState() {
   }
 
   const previous = select.value;
-  select.innerHTML = availableModels.map(id => `<option value="${escHtml(id)}">${escHtml(id)}</option>`).join("");
+  select.innerHTML = availableModels
+    .map((id) => `<option value="${escHtml(id)}">${escHtml(id)}</option>`)
+    .join("");
   select.value = availableModels.includes(previous) ? previous : availableModels[0];
   select.disabled = false;
 }
@@ -153,15 +192,14 @@ function updateModelSelectionState() {
 async function persistSelectionState() {
   if (suppressSelectionSync || !stateServiceConfigured()) return;
   const enabled = document.getElementById("model-selection-cb").checked;
-  const selectedModel = enabled ? (document.getElementById("model-select").value || null) : null;
+  const selectedModel = enabled ? document.getElementById("model-select").value || null : null;
   try {
     await stateFetch("/selection", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ enabled, selected_model: selectedModel }),
     });
-  } catch {
-  }
+  } catch {}
 }
 
 async function syncCatalogState(status) {
@@ -172,8 +210,7 @@ async function syncCatalogState(status) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ models: availableModels, status }),
     });
-  } catch {
-  }
+  } catch {}
 }
 
 function maskUserId(userId) {
@@ -189,11 +226,13 @@ function renderOtherUsers(items) {
     return;
   }
 
-  container.innerHTML = `<div class="other-users">${items.map(item => {
-    const updated = item.updated_at ? new Date(item.updated_at).toLocaleTimeString() : "unknown";
-    const status = item.enabled ? (item.selected_model || "enabled") : "disabled";
-    return `<div class="other-user-card"><div class="name">${escHtml(maskUserId(item.user_id || "unknown"))}</div><div class="meta">${escHtml(status)}</div><div class="meta">Updated ${escHtml(updated)}</div></div>`;
-  }).join("")}</div>`;
+  container.innerHTML = `<div class="other-users">${items
+    .map((item) => {
+      const updated = item.updated_at ? new Date(item.updated_at).toLocaleTimeString() : "unknown";
+      const status = item.enabled ? item.selected_model || "enabled" : "disabled";
+      return `<div class="other-user-card"><div class="name">${escHtml(maskUserId(item.user_id || "unknown"))}</div><div class="meta">${escHtml(status)}</div><div class="meta">Updated ${escHtml(updated)}</div></div>`;
+    })
+    .join("")}</div>`;
 }
 
 async function loadSharedState() {
@@ -220,7 +259,7 @@ async function loadSharedState() {
     const others = await othersResp.json();
 
     catalogPill.textContent = `Catalog: ${catalog.status || "unknown"} (${(catalog.models || []).length})`;
-    selectionPill.textContent = `My selection: ${mine.enabled ? (mine.selected_model || "enabled") : "disabled"}`;
+    selectionPill.textContent = `My selection: ${mine.enabled ? mine.selected_model || "enabled" : "disabled"}`;
 
     suppressSelectionSync = true;
     document.getElementById("model-selection-cb").checked = Boolean(mine.enabled);
@@ -244,7 +283,7 @@ async function fetchHealth() {
     const data = await resp.json();
     const healthy = data.status === "healthy" || data.status === "ok";
     const el = document.getElementById("health-val");
-    el.textContent = healthy ? "Healthy" : (data.status || "Degraded");
+    el.textContent = healthy ? "Healthy" : data.status || "Degraded";
     el.className = `value ${healthy ? "health-ok" : "health-deg"}`;
     document.getElementById("health-sub").textContent = "LiteLLM gateway";
   } catch (e) {
@@ -259,22 +298,25 @@ async function fetchModels() {
   try {
     const resp = await apiFetch("/v1/models");
     const data = await resp.json();
-    const modelItems = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+    const modelItems = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
     availableModels = modelItems
-      .map(item => (item && typeof item === "object" ? item.id : null))
-      .filter(id => typeof id === "string" && id.trim() !== "");
+      .map((item) => (item && typeof item === "object" ? item.id : null))
+      .filter((id) => typeof id === "string" && id.trim() !== "");
 
     document.getElementById("models-val").textContent = String(availableModels.length);
-    document.getElementById("models-sub").textContent = availableModels.length === 0
-      ? "No models available from LiteLLM"
-      : availableModels.join(", ").slice(0, 60);
+    document.getElementById("models-sub").textContent =
+      availableModels.length === 0
+        ? "No models available from LiteLLM"
+        : availableModels.join(", ").slice(0, 60);
 
     updateModelSelectionState();
     await syncCatalogState("live");
   } catch (e) {
     availableModels = [];
     document.getElementById("models-val").textContent = "—";
-    document.getElementById("models-sub").textContent = getKey() ? `Failed to load models: ${e.message}` : "Auth required";
+    document.getElementById("models-sub").textContent = getKey()
+      ? `Failed to load models: ${e.message}`
+      : "Auth required";
     updateModelSelectionState();
     await syncCatalogState("unavailable");
   }
@@ -299,8 +341,11 @@ async function fetchMetrics() {
     const text = await resp.text();
     const m = parsePrometheus(text);
 
-    const totalReq = m["litellm_requests_metric_total"] ?? m["litellm_llm_requests_metric_total"] ?? 0;
-    const totalTok = m["litellm_total_tokens"] ?? (m["litellm_input_tokens"] ?? 0) + (m["litellm_output_tokens"] ?? 0);
+    const totalReq =
+      m["litellm_requests_metric_total"] ?? m["litellm_llm_requests_metric_total"] ?? 0;
+    const totalTok =
+      m["litellm_total_tokens"] ??
+      (m["litellm_input_tokens"] ?? 0) + (m["litellm_output_tokens"] ?? 0);
     const totalErr = m["litellm_llm_api_failed_requests_metric_total"] ?? 0;
 
     document.getElementById("req-val").textContent = fmtNum(totalReq);
@@ -308,7 +353,11 @@ async function fetchMetrics() {
     document.getElementById("err-val").textContent = fmtNum(totalErr);
     document.getElementById("err-val").className = `value ${totalErr > 0 ? "health-err" : ""}`;
 
-    const label = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    const label = new Date().toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
     const deltaReq = prevReq !== null ? Math.max(0, totalReq - prevReq) : 0;
     const deltaTok = prevTok !== null ? Math.max(0, totalTok - prevTok) : 0;
 
@@ -356,7 +405,7 @@ async function fetchLogs() {
   try {
     const resp = await apiFetch("/logs");
     const data = await resp.json();
-    const rows = Array.isArray(data) ? data : (data.data || data.logs || []);
+    const rows = Array.isArray(data) ? data : data.data || data.logs || [];
 
     if (rows.length === 0) {
       container.innerHTML = '<div class="empty">No log entries found.</div>';
@@ -382,7 +431,8 @@ function fmtNum(n) {
 async function refresh() {
   await Promise.allSettled([fetchHealth(), fetchModels(), fetchMetrics(), fetchLogs()]);
   await loadSharedState();
-  document.getElementById("last-updated").textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
+  document.getElementById("last-updated").textContent =
+    `Last updated: ${new Date().toLocaleTimeString()}`;
 }
 
 function openGrafana() {

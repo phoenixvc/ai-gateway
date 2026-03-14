@@ -1,4 +1,10 @@
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
 
 :root {
   --bg: #0f1117;
@@ -16,7 +22,10 @@
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
   font-size: 14px;
   min-height: 100vh;
 }
@@ -56,6 +65,17 @@ header h1 {
 
 #gateway-link:hover {
   color: var(--accent);
+}
+
+#gateway-link:focus {
+  color: var(--accent);
+}
+
+#gateway-link:focus-visible {
+  color: var(--accent);
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 #grafana-btn {
@@ -103,7 +123,8 @@ main {
   white-space: nowrap;
 }
 
-.auth-bar input[type=password], #user-id-input {
+.auth-bar input[type="password"],
+#user-id-input {
   min-width: 180px;
   background: var(--bg);
   border: 1px solid var(--border);
@@ -113,7 +134,9 @@ main {
   font-size: 13px;
 }
 
-.auth-bar input[type=password] { flex: 1; }
+.auth-bar input[type="password"] {
+  flex: 1;
+}
 
 .auth-bar input:focus {
   border-color: var(--accent);
@@ -137,7 +160,9 @@ main {
   white-space: nowrap;
 }
 
-.auth-bar button:hover { opacity: .85; }
+.auth-bar button:hover {
+  opacity: 0.85;
+}
 
 .auth-bar button:focus,
 .auth-bar button:focus-visible,
@@ -150,7 +175,10 @@ main {
   box-shadow: 0 0 0 2px rgba(91, 141, 238, 0.35);
 }
 
-#key-status { font-size: 12px; color: var(--muted); }
+#key-status {
+  font-size: 12px;
+  color: var(--muted);
+}
 
 .refresh-bar {
   display: flex;
@@ -177,7 +205,20 @@ main {
 }
 
 #model-selection-toggle,
-#auto-refresh-toggle { cursor: pointer; }
+#auto-refresh-toggle {
+  cursor: pointer;
+}
+
+#model-selection-toggle:focus,
+#model-selection-toggle:focus-visible,
+#model-selection-toggle:focus-within,
+#auto-refresh-toggle:focus,
+#auto-refresh-toggle:focus-visible,
+#auto-refresh-toggle:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
 
 #model-select {
   background: var(--bg);
@@ -189,7 +230,20 @@ main {
   min-width: 220px;
 }
 
-#model-select:disabled { color: var(--muted); }
+#model-select:focus {
+  border-color: var(--accent);
+  outline: 2px solid transparent;
+  box-shadow: 0 0 0 2px rgba(91, 141, 238, 0.35);
+}
+
+#model-select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+#model-select:disabled {
+  color: var(--muted);
+}
 
 .cards {
   display: grid;
@@ -197,7 +251,9 @@ main {
   gap: 16px;
 }
 
-.card, .chart-card, .logs-card {
+.card,
+.chart-card,
+.logs-card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -210,7 +266,7 @@ main {
   font-size: 13px;
   color: var(--muted);
   text-transform: uppercase;
-  letter-spacing: .04em;
+  letter-spacing: 0.04em;
   margin-bottom: 10px;
 }
 
@@ -225,9 +281,17 @@ main {
   margin-top: 4px;
 }
 
-.health-ok { color: var(--green); }
-.health-deg { color: var(--yellow); }
-.health-err { color: var(--red); }
+.health-ok {
+  color: var(--green);
+}
+
+.health-deg {
+  color: var(--yellow);
+}
+
+.health-err {
+  color: var(--red);
+}
 
 .charts {
   display: grid;
@@ -241,8 +305,13 @@ main {
   }
 }
 
-.chart-card canvas { max-height: 200px; }
-.logs-table-wrap { overflow-x: auto; }
+.chart-card canvas {
+  max-height: 200px;
+}
+
+.logs-table-wrap {
+  overflow-x: auto;
+}
 
 table {
   width: 100%;
@@ -264,10 +333,17 @@ td {
   color: var(--text);
 }
 
-tr:last-child td { border-bottom: none; }
+tr:last-child td {
+  border-bottom: none;
+}
 
-td.status-ok { color: var(--green); }
-td.status-err { color: var(--red); }
+td.status-ok {
+  color: var(--green);
+}
+
+td.status-err {
+  color: var(--red);
+}
 
 .empty {
   color: var(--muted);

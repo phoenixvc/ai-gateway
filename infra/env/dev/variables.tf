@@ -179,6 +179,26 @@ variable "state_service_external_enabled" {
   default     = false
 }
 
+variable "state_service_shared_token" {
+  type        = string
+  description = "Optional shared token for trusted dashboard-to-state-service proxy calls."
+  default     = ""
+  sensitive   = true
+}
+
+variable "state_service_registry_username" {
+  type        = string
+  description = "Optional registry username for pulling private state-service images (e.g. GHCR owner)."
+  default     = ""
+}
+
+variable "state_service_registry_password" {
+  type        = string
+  description = "Optional registry password/token for pulling private state-service images."
+  default     = ""
+  sensitive   = true
+}
+
 variable "grafana_url" {
   type        = string
   description = "Grafana Cloud stack URL shown as a link in the dashboard (empty = hide button)"
