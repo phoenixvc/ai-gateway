@@ -26,7 +26,9 @@ class InMemoryStore:
 
 
 memory_store = InMemoryStore()
-redis_client = redis.from_url(REDIS_URL, decode_responses=True) if REDIS_URL and redis else None
+redis_client = (
+    redis.from_url(REDIS_URL, decode_responses=True) if REDIS_URL and redis else None
+)
 
 
 async def read_json(key: str) -> dict[str, Any] | None:

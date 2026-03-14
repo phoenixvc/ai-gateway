@@ -68,3 +68,10 @@ variable "state_service_url" {
     error_message = "state_service_url must be empty or start with https://."
   }
 }
+
+variable "state_service_shared_token" {
+  type        = string
+  description = "Optional shared token for trusted dashboard-to-state-service proxy calls"
+  default     = ""
+  sensitive   = true
+}

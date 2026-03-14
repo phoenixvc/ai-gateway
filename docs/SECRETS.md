@@ -24,21 +24,32 @@ Add these as **Environment secrets** in GitHub:
 - [ ] `TF_BACKEND_CONTAINER`
 - [ ] `AZURE_OPENAI_ENDPOINT`
 - [ ] `AZURE_OPENAI_API_KEY`
-- [ ] `AZURE_OPENAI_EMBEDDING_ENDPOINT` *(optional — set only if embeddings use a different Azure OpenAI resource)*
-- [ ] `AZURE_OPENAI_EMBEDDING_API_KEY` *(optional — set only if embeddings use a different API key)*
+- [ ] `AZURE_OPENAI_EMBEDDING_ENDPOINT` _(optional — set only if embeddings use a different Azure OpenAI resource)_
+- [ ] `AZURE_OPENAI_EMBEDDING_API_KEY` _(optional — set only if embeddings use a different API key)_
 - [ ] `AIGATEWAY_KEY`
 
 ## Grafana dashboard deployment secrets (prod)
 
 These are required by `.github/workflows/deploy-grafana-dashboards.yaml`:
 
-- [ ] `GRAFANA_URL` *(Grafana Cloud stack URL, e.g. `https://pvc-aigateway.grafana.net`)*
-- [ ] `GRAFANA_SA_TOKEN` *(Grafana service account token with dashboard import permissions)*
+- [ ] `GRAFANA_URL` _(Grafana Cloud stack URL, e.g. `https://pvc-aigateway.grafana.net`)_
+- [ ] `GRAFANA_SA_TOKEN` _(Grafana service account token with dashboard import permissions)_
 
 You can source values from `infra/grafana` outputs:
 
 - `terraform -chdir=infra/grafana output -raw stack_url`
 - `terraform -chdir=infra/grafana output -raw github_actions_token`
+
+## Shared state-service secret (optional, recommended when state-service enabled)
+
+- [ ] `STATE_SERVICE_SHARED_TOKEN` _(shared token injected by dashboard proxy and validated by state-service for trusted internal calls)_
+- [ ] `STATE_SERVICE_REGISTRY_PASSWORD` _(GHCR token/PAT with `read:packages` scope for private state-service image pulls)_
+
+When `STATE_SERVICE_CONTAINER_IMAGE` is set to a private image, add repository/environment variable:
+
+- [ ] `STATE_SERVICE_REGISTRY_USERNAME` _(GHCR username/owner; defaults to repository owner when not set)_
+
+When `STATE_SERVICE_CONTAINER_IMAGE` is set (state-service enabled), set this secret to a strong random value.
 
 ## Copy/paste template
 
@@ -56,6 +67,10 @@ AZURE_OPENAI_API_KEY=<key>
 AZURE_OPENAI_EMBEDDING_ENDPOINT=                # optional: only if embeddings are on a different resource
 AZURE_OPENAI_EMBEDDING_API_KEY=                 # optional: only if embeddings use a different key
 AIGATEWAY_KEY=<gateway-key>
+STATE_SERVICE_SHARED_TOKEN=<strong-random-token>   # optional, recommended if state-service is enabled
+STATE_SERVICE_REGISTRY_PASSWORD=<ghcr-read-packages-token>   # required for private state-service images
+# Optional repo/environment variable:
+# STATE_SERVICE_REGISTRY_USERNAME=<ghcr-username-or-org>
 ```
 
 ## Validation before deploy

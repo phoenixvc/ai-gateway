@@ -84,6 +84,22 @@ terraform apply
 
 - CI/CD behavior, environment promotion rules, and smoke-test diagnostics are documented in [docs/CI_CD.md](docs/CI_CD.md).
 
+## Formatting (pnpm)
+
+This repo uses [Prettier](https://prettier.io/) via `pnpm` for lightweight formatting checks.
+
+```bash
+pnpm install
+pnpm check
+pnpm lint
+pnpm format:check
+pnpm format
+```
+
+- `pnpm check` runs repo checks (`lint` + `terraform fmt -check -recursive`)
+- `pnpm lint` currently maps to formatting checks (easy to expand later)
+- `pnpm format` applies Prettier changes
+
 ## Documentation
 
 - [PRD](docs/PRD.md) – Product requirements

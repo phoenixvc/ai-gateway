@@ -2,6 +2,7 @@ import os
 
 REDIS_URL = os.getenv("REDIS_URL", "").strip()
 STATE_KEY_PREFIX = os.getenv("STATE_KEY_PREFIX", "aigw:state")
+STATE_SERVICE_SHARED_TOKEN = os.getenv("STATE_SERVICE_SHARED_TOKEN", "").strip()
 
 CATALOG_KEY = f"{STATE_KEY_PREFIX}:catalog"
 USERS_KEY = f"{STATE_KEY_PREFIX}:users"

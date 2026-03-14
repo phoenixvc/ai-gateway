@@ -2,14 +2,14 @@
 
 This canvas includes a working Terraform scaffold:
 
-* `infra/modules/aigateway_aca`
-* `infra/env/dev|uat|prod`
-* Shared state configured via `terraform init -backend-config=...` in GitHub Actions
+- `infra/modules/aigateway_aca`
+- `infra/env/dev|uat|prod`
+- Shared state configured via `terraform init -backend-config=...` in GitHub Actions
 
 > Notes:
 >
-> * Some Azure resources have naming constraints; this blueprint uses a helper to generate compliant names.
-> * Container Apps requires recent `azurerm` provider versions.
+> - Some Azure resources have naming constraints; this blueprint uses a helper to generate compliant names.
+> - Container Apps requires recent `azurerm` provider versions.
 
 ---
 
@@ -449,8 +449,8 @@ Repeat the env folders for `uat` and `prod`, changing only `env` and tags.
 
 Instead of putting keys in `terraform.tfvars`, set Terraform variables from GitHub environment secrets:
 
-* `TF_VAR_azure_openai_api_key`
-* `TF_VAR_gateway_key`
+- `TF_VAR_azure_openai_api_key`
+- `TF_VAR_gateway_key`
 
 Example (add to your workflow steps before terraform commands):
 
@@ -471,8 +471,8 @@ env:
 
 Add GitHub **environment secrets** per env:
 
-* `AZURE_OPENAI_API_KEY`
-* `AIGATEWAY_KEY`
+- `AZURE_OPENAI_API_KEY`
+- `AIGATEWAY_KEY`
 
 ---
 
@@ -505,16 +505,16 @@ curl -sS "$GW/v1/responses" \
 
 In Roo/Qoder:
 
-* Provider: OpenAI Compatible
-* Base URL: `https://<gateway-fqdn>`
-* API Key: use the same `gateway_key` (if using LiteLLM master key bearer)
-* Model for coding: `gpt-5.3-codex`
+- Provider: OpenAI Compatible
+- Base URL: `https://<gateway-fqdn>`
+- API Key: use the same `gateway_key` (if using LiteLLM master key bearer)
+- Model for coding: `gpt-5.3-codex`
 
 For indexing:
 
-* Base URL: `https://<gateway-fqdn>`
-* Model: `text-embedding-3-large`
-* Dimension: match your embedding deployment (commonly 3072 for 3-large)
+- Base URL: `https://<gateway-fqdn>`
+- Model: `text-embedding-3-large`
+- Dimension: match your embedding deployment (commonly 3072 for 3-large)
 
 ---
 

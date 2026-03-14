@@ -44,6 +44,7 @@ variable "redis_url" {
   type        = string
   description = "Optional Redis URL (empty = in-memory store)"
   default     = ""
+  sensitive   = true
 }
 
 variable "state_key_prefix" {
@@ -52,8 +53,34 @@ variable "state_key_prefix" {
   default     = "aigw:state"
 }
 
+variable "state_service_shared_token" {
+  type        = string
+  description = "Optional shared token required from trusted proxy"
+  default     = ""
+  sensitive   = true
+}
+
 variable "external_enabled" {
   type        = bool
   description = "Whether state-service ingress should be externally accessible"
   default     = false
+}
+
+variable "registry_server" {
+  type        = string
+  description = "Container registry server for state-service image pulls"
+  default     = "ghcr.io"
+}
+
+variable "registry_username" {
+  type        = string
+  description = "Optional container registry username for private image pulls"
+  default     = ""
+}
+
+variable "registry_password" {
+  type        = string
+  description = "Optional container registry password/token for private image pulls"
+  default     = ""
+  sensitive   = true
 }

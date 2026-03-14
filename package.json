@@ -1,0 +1,18 @@
+{
+    "name": "ai-gateway",
+    "private": true,
+    "version": "0.1.0",
+    "description": "Formatting tooling for ai-gateway",
+    "packageManager": "pnpm@10.0.0",
+    "scripts": {
+        "format": "pnpm prettier:write",
+        "format:check": "pnpm prettier:check",
+        "lint": "pnpm format:check",
+        "check": "pnpm lint && terraform fmt -check -recursive",
+        "prettier:check": "prettier --check \"dashboard/**/*.{js,css,html}\" \".github/workflows/**/*.{yml,yaml}\" \"docs/**/*.md\" \"README.md\"",
+        "prettier:write": "prettier --write \"dashboard/**/*.{js,css,html}\" \".github/workflows/**/*.{yml,yaml}\" \"docs/**/*.md\" \"README.md\""
+    },
+    "devDependencies": {
+        "prettier": "^3.6.2"
+    }
+}
