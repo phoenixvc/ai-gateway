@@ -99,10 +99,28 @@ For clients that can only send headers, a future enhancement would add middlewar
 
 This requires a custom LiteLLM wrapper or sidecar (not yet implemented).
 
-### Phase 3: Per-Request Rollup
+### Phase 3: Per-Request Rollup (Future Enhancement)
 
-- Track tokens per request_id in memory or Redis
-- Emit summary event when request completes
+**Status: Not Started**
+
+To provide request-completion rollup totals (total_tokens, llm_calls), we need to aggregate token counts per request_id. This requires:
+
+1. **Option A: Custom LiteLLM Image**
+   - Build a custom LiteLLM image with a callback that tracks token counts per request_id
+   - Emit a summary event when request completes
+   - Most control, but requires image build/deploy pipeline
+
+2. **Option B: OTEL Collector Aggregation**
+   - Configure an OTEL collector to aggregate spans by request_id
+   - Emit rollup events from the collector
+   - Leverages existing OTEL infrastructure
+
+3. **Option C: Downstream Aggregation**
+   - Have pvc-costops-analytics aggregate OTEL spans by request_id
+   - No changes to gateway required
+   - Relies on span duration for "request complete" detection
+
+**Recommendation:** Start with Option C (downstream aggregation) as it requires no changes to the gateway. If latency is an issue, consider Option B.
 
 ## What We Need from Other Repos
 
@@ -193,10 +211,12 @@ _Note: Method B requires additional LiteLLM configuration or middleware._
 
 ## Acceptance Criteria
 
-- 100% of LLM calls emit token telemetry with request_id + operation_id
-- 100% include workflow + stage
-- Provide request-completion rollup totals (total_tokens, llm_calls)
-- Support KQL joins requests↔token events by operation_Id/request_id
+| Criterion                                    | Status     | Notes                                     |
+| -------------------------------------------- | ---------- | ----------------------------------------- |
+| 100% of LLM calls emit token telemetry       | ✅ Done    | Via OTEL callback                         |
+| 100% include workflow + stage                | ⚠️ Partial | Requires upstream to pass metadata        |
+| Support KQL joins by operation_Id/request_id | ✅ Done    | OTEL spans include metadata               |
+| Request-completion rollup totals             | 🔜 Future  | Requires Phase 3 (downstream aggregation) |
 
 ## Dependencies
 
@@ -206,9 +226,16 @@ _Note: Method B requires additional LiteLLM configuration or middleware._
 
 ## Action Items
 
-1. ai-gateway: Build custom LiteLLM image with token telemetry callback
-2. cognitive-mesh: Ensure correlation headers are passed to gateway
-3. pvc-costops-analytics: Prepare KQL queries for new event shape
+### Completed
+
+1. ✅ ai-gateway: Add OTEL callback for token telemetry (Phase 1)
+2. ✅ ai-gateway: Document correlation ID requirements (Phase 2)
+
+### Pending
+
+3. cognitive-mesh: Pass correlation IDs in request metadata
+4. pvc-costops-analytics: Create KQL queries for OTEL span joins
+5. pvc-costops-analytics: Implement request rollup aggregation (Phase 3)
 
 ---
 
