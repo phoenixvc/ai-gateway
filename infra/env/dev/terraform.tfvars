@@ -23,3 +23,8 @@ tags = {
 }
 
 enable_redis_cache = true
+
+# State Service
+state_service_container_image   = "ghcr.io/phoenixvc/ai-gateway-state-service:latest"
+state_service_registry_username = "phoenixvc"
+state_service_registry_password = "ghp_xxx"
