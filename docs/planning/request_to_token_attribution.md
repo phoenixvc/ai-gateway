@@ -63,9 +63,41 @@ LiteLLM's OTEL callback automatically emits spans with:
 
 ### Phase 2: Correlation ID Propagation
 
-- Extract x-request-id, x-correlation-id headers from incoming requests
-- Pass them through to LiteLLM via metadata param
-- Include: endpoint_name, workflow_name, stage_name from request path
+**Status: In Progress**
+
+Correlation IDs flow through the system in two ways:
+
+**Method A: Via Request Metadata (Recommended)**
+Pass correlation IDs in the request body `metadata` field:
+
+```json
+{
+  "model": "gpt-5.3-codex",
+  "messages": [{ "role": "user", "content": "Hello" }],
+  "metadata": {
+    "request_id": "req_123",
+    "session_id": "sess_456",
+    "workflow": "manual_orchestration",
+    "stage": "writer",
+    "endpoint": "/api/manual-orchestration/sessions/start",
+    "user_id": "user_abc"
+  }
+}
+```
+
+LiteLLM automatically passes `metadata` through to OTEL spans, making these fields available in traces.
+
+**Method B: Via HTTP Headers (Future Enhancement)**
+For clients that can only send headers, a future enhancement would add middleware to extract:
+
+- `x-request-id`
+- `x-session-id`
+- `x-correlation-id`
+- `x-workflow-name`
+- `x-stage-name`
+- `x-user-id`
+
+This requires a custom LiteLLM wrapper or sidecar (not yet implemented).
 
 ### Phase 3: Per-Request Rollup
 
@@ -123,7 +155,7 @@ _Note: Method B requires additional LiteLLM configuration or middleware._
 | C. Log Analytics Query       | No code changes   | No guarantee of 100% coverage |
 | D. Sidecar Container         | Decoupled         | Additional complexity         |
 
-**Recommended:** Option A (Custom LiteLLM Image) for Phase 1
+**Selected:** Option B (OpenTelemetry) - Implemented in Phase 1
 
 ## Required Event Shape
 
@@ -177,3 +209,26 @@ _Note: Method B requires additional LiteLLM configuration or middleware._
 1. ai-gateway: Build custom LiteLLM image with token telemetry callback
 2. cognitive-mesh: Ensure correlation headers are passed to gateway
 3. pvc-costops-analytics: Prepare KQL queries for new event shape
+
+---
+
+## Infrastructure Decisions (Shared-Infra Adoption)
+
+| Decision              | Value              | Rationale                                                                                        |
+| --------------------- | ------------------ | ------------------------------------------------------------------------------------------------ |
+| Redis/Storage needed? | No                 | OTEL sends traces directly to collector. Add Redis only if caching is needed for cost reduction. |
+| Isolation level       | Shared-per-env     | Fine for initial deployment. Add dedicated resources only when there's contention.               |
+| Public hostname       | Direct ACA ingress | Simpler, lower cost. Add Front Door later for WAF/custom domain.                                 |
+| Environment naming    | `staging`          | Aligns with Mystira shared-infra conventions. Migrate `uat` later if needed.                     |
+
+### Terraform Integration Notes
+
+When integrating with shared-infra (Mystira):
+
+1. **Module location**: Add product under `infra/terraform/products/ai-gateway/`
+2. **Shared resources to consume**:
+   - Log Analytics workspace from shared outputs
+   - Key Vault for secrets (use managed identity to read)
+   - Optional: Redis if caching becomes necessary
+3. **Naming alignment**: Use `staging` instead of `uat` for environment naming
+4. **Secrets**: Write to Key Vault only; never output from Terraform
