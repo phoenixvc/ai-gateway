@@ -13,7 +13,7 @@ locals {
   prefix            = "pvc-${var.env}-${var.projname}"
   ca_name           = "${local.prefix}-state-${var.location_short}"
   use_registry_auth = var.registry_username != "" && var.registry_password != ""
-  use_shared_token  = trim(var.state_service_shared_token) != ""
+  use_shared_token  = trimspace(var.state_service_shared_token) != ""
 
   tags = merge({
     env     = var.env

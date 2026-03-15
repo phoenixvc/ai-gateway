@@ -12,7 +12,7 @@ terraform {
 locals {
   prefix           = "pvc-${var.env}-${var.projname}"
   ca_name          = "${local.prefix}-dashboard-${var.location_short}"
-  use_shared_token = trim(var.state_service_shared_token) != ""
+  use_shared_token = trimspace(var.state_service_shared_token) != ""
 
   tags = merge({
     env     = var.env
