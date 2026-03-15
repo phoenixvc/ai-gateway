@@ -29,20 +29,37 @@ Document the current architecture:
 
 ## What Can Be Done in This Repo
 
-### Phase 1: LiteLLM Custom Callback (Core Implementation)
+### Phase 1: OpenTelemetry Integration (Core Implementation)
 
-**Files to modify:**
+**Implementation Approach:**
 
-- `infra/modules/aigateway_aca/main.tf` - Add custom callback config
-- Create new custom callback module
+Instead of a custom callback (which requires a custom LiteLLM image), we're using LiteLLM's built-in OpenTelemetry support. This provides structured traces with token telemetry out of the box.
 
-**Approach:** Use LiteLLM's CustomLogger class or success_callback to emit structured token telemetry
+**Changes Made:**
 
-**Challenge:** LiteLLM runs as a container image - need to either:
+- Added `otel` to LiteLLM `success_callback` and `failure_callback` in `infra/modules/aigateway_aca/main.tf`
+- Added OTEL environment variables:
+  - `OTEL_SERVICE_NAME` - service name for traces
+  - `OTEL_TRACER_NAME` - tracer name
+  - `OTEL_EXPORTER_OTLP_ENDPOINT` - OTLP collector endpoint
+  - `OTEL_EXPORTER_OTLP_PROTOCOL` - protocol (http/json)
+- Added new variables in `infra/modules/aigateway_aca/variables.tf`:
+  - `otel_exporter_endpoint` - OTLP collector URL
+  - `otel_service_name` - custom service name
 
-1. Build a custom image with callback baked in
-2. Use environment variables + config-based callback
-3. Add a sidecar container
+**How It Works:**
+
+LiteLLM's OTEL callback automatically emits spans with:
+
+- Model name, provider, deployment
+- Token usage (prompt_tokens, completion_tokens, total_tokens)
+- Duration
+- Request/response metadata
+
+**Files Modified:**
+
+- `infra/modules/aigateway_aca/main.tf` - Added OTEL callback and env vars
+- `infra/modules/aigateway_aca/variables.tf` - Added OTEL configuration variables
 
 ### Phase 2: Correlation ID Propagation
 
@@ -59,7 +76,27 @@ Document the current architecture:
 
 ### 1. cognitive-mesh (Upstream Caller)
 
-Required: Must pass correlation headers when calling gateway:
+**Required:** Must pass correlation headers when calling gateway. There are two methods:
+
+**Method A: Via Request Metadata (Recommended)**
+Pass correlation IDs in the request body `metadata` field:
+
+```json
+{
+  "model": "gpt-5.3-codex",
+  "messages": [{ "role": "user", "content": "Hello" }],
+  "metadata": {
+    "request_id": "req_123",
+    "session_id": "sess_456",
+    "workflow": "manual_orchestration",
+    "stage": "writer",
+    "endpoint": "/api/manual-orchestration/sessions/start",
+    "user_id": "user_abc"
+  }
+}
+```
+
+**Method B: Via HTTP Headers**
 
 - x-request-id
 - x-session-id
@@ -68,9 +105,11 @@ Required: Must pass correlation headers when calling gateway:
 - x-stage-name
 - x-user-id
 
+_Note: Method B requires additional LiteLLM configuration or middleware._
+
 ### 2. pvc-costops-analytics (Downstream Analytics)
 
-Required: KQL queries and dashboards to:
+**Required:** KQL queries and dashboards to:
 
 - Join requests table to token events by operation_Id/request_id
 - Aggregate rollups by endpoint, workflow, stage, model, deployment

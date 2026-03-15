@@ -211,3 +211,16 @@ variable "tpm_limit" {
   description = "Global tokens-per-minute cap across all API keys (0 = no limit)."
   default     = 0
 }
+
+# OpenTelemetry configuration for request-to-token attribution
+variable "otel_exporter_endpoint" {
+  type        = string
+  description = "OpenTelemetry OTLP exporter endpoint (e.g., https://collector.example.com:4318). Leave empty to disable OTEL tracing."
+  default     = ""
+}
+
+variable "otel_service_name" {
+  type        = string
+  description = "OpenTelemetry service name for tracing."
+  default     = "ai-gateway"
+}
