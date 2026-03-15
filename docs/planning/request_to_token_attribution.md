@@ -47,6 +47,8 @@ Instead of a custom callback (which requires a custom LiteLLM image), we're usin
   - `otel_exporter_endpoint` - OTLP collector URL
   - `otel_service_name` - custom service name
 
+> **Note:** Phase 1 requires an OTLP collector endpoint to be configured. This can be a dedicated collector app, or you can send directly to a backend that supports OTLP (e.g., Application Insights, Grafana Tempo).
+
 **How It Works:**
 
 LiteLLM's OTEL callback automatically emits spans with:
@@ -80,10 +82,12 @@ Pass correlation IDs in the request body `metadata` field:
     "workflow": "manual_orchestration",
     "stage": "writer",
     "endpoint": "/api/manual-orchestration/sessions/start",
-    "user_id": "user_abc"
+    "user_id": "user_abc" // Consider hashing/pseudonymizing for privacy
   }
 }
 ```
+
+> **Note:** `user_id` / `actor_id` can become PII. Consider hashing or using pseudonymous identifiers.
 
 LiteLLM automatically passes `metadata` through to OTEL spans, making these fields available in traces.
 
@@ -99,28 +103,20 @@ For clients that can only send headers, a future enhancement would add middlewar
 
 This requires a custom LiteLLM wrapper or sidecar (not yet implemented).
 
-### Phase 3: Per-Request Rollup (Future Enhancement)
+### Phase 3: Per-Request Rollup
 
 **Status: Not Started**
 
-To provide request-completion rollup totals (total_tokens, llm_calls), we need to aggregate token counts per request_id. This requires:
+Provide request-completion rollup totals (total_tokens, llm_calls) by aggregating token counts per request_id.
 
-1. **Option A: Custom LiteLLM Image**
-   - Build a custom LiteLLM image with a callback that tracks token counts per request_id
-   - Emit a summary event when request completes
-   - Most control, but requires image build/deploy pipeline
+**Recommendation: Option C (Downstream Aggregation)**
 
-2. **Option B: OTEL Collector Aggregation**
-   - Configure an OTEL collector to aggregate spans by request_id
-   - Emit rollup events from the collector
-   - Leverages existing OTEL infrastructure
+Start with downstream aggregation in pvc-costops-analytics - the cheapest and fastest approach. Roll up tokens by request_id/operation_id from OTEL spans without changing the gateway.
 
-3. **Option C: Downstream Aggregation**
-   - Have pvc-costops-analytics aggregate OTEL spans by request_id
-   - No changes to gateway required
-   - Relies on span duration for "request complete" detection
+**When to consider alternatives:**
 
-**Recommendation:** Start with Option C (downstream aggregation) as it requires no changes to the gateway. If latency is an issue, consider Option B.
+- **Option B (Collector aggregation)**: Only if you need near-real-time rollups emitted as first-class events/metrics
+- **Option A (Custom LiteLLM image)**: Only if LiteLLM's built-in OTEL data is incomplete or you need strict "request complete" semantics that can't be reliably inferred downstream
 
 ## What We Need from Other Repos
 
@@ -250,9 +246,9 @@ _Note: Method B requires additional LiteLLM configuration or middleware._
 
 ### Terraform Integration Notes
 
-When integrating with shared-infra (Mystira):
+**Recommendation:** ai-gateway keeps owning its Terraform in its repo. Mystira workspace treats ai-gateway as an external product that consumes shared-infra via an explicit "shared resource contract".
 
-1. **Module location**: Add product under `infra/terraform/products/ai-gateway/`
+1. **Module location**: ai-gateway owns its Terraform in this repo
 2. **Shared resources to consume**:
    - Log Analytics workspace from shared outputs
    - Key Vault for secrets (use managed identity to read)
