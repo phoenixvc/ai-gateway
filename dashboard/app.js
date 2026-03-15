@@ -53,7 +53,7 @@ function escHtml(s) {
 
 function deriveEnv(url) {
   if (!url) return null;
-  const m = url.match(/pvc-(dev|uat|prod)-/);
+  const m = url.match(/pvc-(dev|staging|prod)-/);
   return m ? m[1] : null;
 }
 

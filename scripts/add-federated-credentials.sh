@@ -3,7 +3,7 @@ set -e
 
 # Add Federated Credentials for GitHub Actions Environments
 # Use this script if you already ran bootstrap and got AADSTS700213 because
-# the workflow uses environment: dev/uat/prod but Azure only had branch-based credentials.
+# the workflow uses environment: dev/staging/prod but Azure only had branch-based credentials.
 #
 # Usage: $0 <AZURE_CLIENT_ID> <GITHUB_ORG> <GITHUB_REPO>
 # Example: $0 abc123-def456 phoenixvc ai-gateway
@@ -11,7 +11,7 @@ set -e
 if [ "$#" -ne 3 ]; then
     echo "Usage: $0 <AZURE_CLIENT_ID> <GITHUB_ORG> <GITHUB_REPO>"
     echo ""
-    echo "Adds federated identity credentials for dev, uat, prod environments"
+    echo "Adds federated identity credentials for dev, staging, prod environments"
     echo "to an existing Azure AD app registration (fixes AADSTS700213)."
     echo ""
     echo "Example: $0 \$(az ad app list --display-name pvc-shared-github-actions-oidc --query [0].appId -o tsv) phoenixvc ai-gateway"
@@ -30,8 +30,8 @@ fi
 
 command -v jq >/dev/null 2>&1 || { echo "Error: jq is required for safe JSON construction. Install jq and retry."; exit 1; }
 
-echo "Ensuring federated credentials for environments (dev, uat, prod) on app $APP_ID..."
-for ENV in dev uat prod; do
+echo "Ensuring federated credentials for environments (dev, staging, prod) on app $APP_ID..."
+for ENV in dev staging prod; do
   SUBJECT="repo:$GITHUB_ORG/$GITHUB_REPO:environment:$ENV"
   EXISTING_SUBJECT=$(az ad app federated-credential list --id "$OBJECT_ID" --query "[?name=='github-actions-$ENV'].subject" -o tsv 2>/dev/null | head -n1)
   if [ -n "$EXISTING_SUBJECT" ] && [ "$EXISTING_SUBJECT" = "$SUBJECT" ]; then

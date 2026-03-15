@@ -12,7 +12,7 @@ If you see:
 Error: AADSTS700213: No matching federated identity record found for presented assertion subject 'repo:phoenixvc/ai-gateway:environment:dev'
 ```
 
-**Cause:** The workflow uses `environment: dev` (and uat/prod), so the OIDC subject is `repo:org/repo:environment:dev`. Azure must have a federated credential with that exact subject.
+**Cause:** The workflow uses `environment: dev` (and staging/prod), so the OIDC subject is `repo:org/repo:environment:dev`. Azure must have a federated credential with that exact subject.
 
 ### Fix: Add environment federated credentials
 
@@ -32,21 +32,21 @@ az ad app list --display-name pvc-shared-github-actions-oidc --query "[0].appId"
 
 1. Go to **Azure Portal** → **Microsoft Entra ID** → **App registrations** → your app (e.g. `pvc-shared-github-actions-oidc`)
 2. **Certificates & secrets** → **Federated credentials** → **Add credential**
-3. For each environment (dev, uat, prod), add:
+3. For each environment (dev, staging, prod), add:
    - **Federated credential scenario:** GitHub Actions deploying Azure resources
    - **Organization:** phoenixvc
    - **Repository:** ai-gateway
    - **Entity type:** Environment
-   - **Environment name:** dev (or uat, prod)
-   - **Name:** github-actions-dev (or uat, prod)
+   - **Environment name:** dev (or staging, prod)
+   - **Name:** github-actions-dev (or staging, prod)
 
 ### Subject formats
 
-| Workflow config      | OIDC subject                                    |
-| -------------------- | ----------------------------------------------- |
-| `environment: dev`   | `repo:phoenixvc/ai-gateway:environment:dev`     |
-| `environment: uat`   | `repo:phoenixvc/ai-gateway:environment:uat`     |
-| `environment: prod`  | `repo:phoenixvc/ai-gateway:environment:prod`    |
-| Branch only (no env) | `repo:phoenixvc/ai-gateway:ref:refs/heads/main` |
+| Workflow config        | OIDC subject                                    |
+| ---------------------- | ----------------------------------------------- |
+| `environment: dev`     | `repo:phoenixvc/ai-gateway:environment:dev`     |
+| `environment: staging` | `repo:phoenixvc/ai-gateway:environment:staging` |
+| `environment: prod`    | `repo:phoenixvc/ai-gateway:environment:prod`    |
+| Branch only (no env)   | `repo:phoenixvc/ai-gateway:ref:refs/heads/main` |
 
 The federated credential **Subject** in Azure must match exactly.

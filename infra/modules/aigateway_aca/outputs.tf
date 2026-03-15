@@ -29,3 +29,9 @@ output "container_app_environment_id" {
   description = "ID of the Container App Environment — used by sibling modules (e.g. dashboard_aca) to deploy into the same environment."
   value       = azurerm_container_app_environment.cae.id
 }
+
+output "application_insights_connection_string" {
+  value       = azurerm_application_insights.ai.connection_string
+  description = "Application Insights connection string for OTEL export."
+  sensitive   = true
+}

@@ -1,7 +1,7 @@
 # Load .env.local and run terraform init -upgrade
-# Usage: .\infra\scripts\terraform-init.ps1 [dev|uat|prod]
+# Usage: .\infra\scripts\terraform-init.ps1 [dev|staging|prod]
 
-param([Parameter(Mandatory=$true)][ValidateSet("dev","uat","prod")][string]$Env)
+param([Parameter(Mandatory=$true)][ValidateSet("dev","staging","prod")][string]$Env)
 
 $envFile = Join-Path $PSScriptRoot ".." ".env.local"
 if (-not (Test-Path $envFile)) {

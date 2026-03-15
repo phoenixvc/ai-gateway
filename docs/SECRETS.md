@@ -2,17 +2,17 @@
 
 Copy this checklist when setting up environments for this repo.
 
-For workflow behavior (dev/uat/prod triggers, PR label `run-uat`, and smoke-test flow), see [CI_CD.md](CI_CD.md).
+For workflow behavior (dev/staging/prod triggers, PR label `run-staging`, and smoke-test flow), see [CI_CD.md](CI_CD.md).
 
 ## Where to add secrets
 
 Add these as **Environment secrets** in GitHub:
 
 - **Settings → Environments → dev → Environment secrets**
-- **Settings → Environments → uat → Environment secrets**
+- **Settings → Environments → staging → Environment secrets**
 - **Settings → Environments → prod → Environment secrets**
 
-> This workflow is environment-based (`environment: dev|uat|prod`), so each environment should have the full secret set.
+> This workflow is environment-based (`environment: dev|staging|prod`), so each environment should have the full secret set.
 
 ## Required secrets (all environments)
 
@@ -53,7 +53,7 @@ When `STATE_SERVICE_CONTAINER_IMAGE` is set (state-service enabled), set this se
 
 ## Copy/paste template
 
-Use this block as a setup checklist when creating/updating `dev`, `uat`, and `prod`:
+Use this block as a setup checklist when creating/updating `dev`, `staging`, and `prod`:
 
 ```text
 AZURE_CLIENT_ID=<GUID>
@@ -82,13 +82,13 @@ STATE_SERVICE_REGISTRY_PASSWORD=<ghcr-read-packages-token>   # required for priv
 - [ ] `AIGATEWAY_KEY` matches the key expected by the deployed gateway.
 - [ ] OIDC federated credentials exist for each environment subject:
   - `repo:phoenixvc/ai-gateway:environment:dev`
-  - `repo:phoenixvc/ai-gateway:environment:uat`
+  - `repo:phoenixvc/ai-gateway:environment:staging`
   - `repo:phoenixvc/ai-gateway:environment:prod`
 
-## Runtime UAT toggle
+## Runtime staging toggle
 
-- UAT deploy on PRs into `main` is controlled by PR label `run-uat`.
-- Add label `run-uat` to enable `deploy-uat` for that PR.
-- Remove label `run-uat` to skip UAT for that PR.
+- Staging deploy on PRs into `main` is controlled by PR label `run-staging`.
+- Add label `run-staging` to enable `deploy-staging` for that PR.
+- Remove label `run-staging` to skip staging for that PR.
 
 For OIDC troubleshooting, see [AZURE_OIDC_SETUP.md](AZURE_OIDC_SETUP.md).
