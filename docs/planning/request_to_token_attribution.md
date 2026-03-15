@@ -47,6 +47,8 @@ Instead of a custom callback (which requires a custom LiteLLM image), we're usin
   - `otel_exporter_endpoint` - OTLP collector URL
   - `otel_service_name` - custom service name
 
+> **Note:** Phase 1 requires an OTLP collector endpoint to be configured. This can be a dedicated collector app, or you can send directly to a backend that supports OTLP (e.g., Application Insights, Grafana Tempo).
+
 **How It Works:**
 
 LiteLLM's OTEL callback automatically emits spans with:
@@ -80,10 +82,12 @@ Pass correlation IDs in the request body `metadata` field:
     "workflow": "manual_orchestration",
     "stage": "writer",
     "endpoint": "/api/manual-orchestration/sessions/start",
-    "user_id": "user_abc"
+    "user_id": "user_abc" // Consider hashing/pseudonymizing for privacy
   }
 }
 ```
+
+> **Note:** `user_id` / `actor_id` can become PII. Consider hashing or using pseudonymous identifiers.
 
 LiteLLM automatically passes `metadata` through to OTEL spans, making these fields available in traces.
 
@@ -101,8 +105,18 @@ This requires a custom LiteLLM wrapper or sidecar (not yet implemented).
 
 ### Phase 3: Per-Request Rollup
 
-- Track tokens per request_id in memory or Redis
-- Emit summary event when request completes
+**Status: Not Started**
+
+Provide request-completion rollup totals (total_tokens, llm_calls) by aggregating token counts per request_id.
+
+**Recommendation: Option C (Downstream Aggregation)**
+
+Start with downstream aggregation in pvc-costops-analytics - the cheapest and fastest approach. Roll up tokens by request_id/operation_id from OTEL spans without changing the gateway.
+
+**When to consider alternatives:**
+
+- **Option B (Collector aggregation)**: Only if you need near-real-time rollups emitted as first-class events/metrics
+- **Option A (Custom LiteLLM image)**: Only if LiteLLM's built-in OTEL data is incomplete or you need strict "request complete" semantics that can't be reliably inferred downstream
 
 ## What We Need from Other Repos
 
@@ -193,10 +207,12 @@ _Note: Method B requires additional LiteLLM configuration or middleware._
 
 ## Acceptance Criteria
 
-- 100% of LLM calls emit token telemetry with request_id + operation_id
-- 100% include workflow + stage
-- Provide request-completion rollup totals (total_tokens, llm_calls)
-- Support KQL joins requests↔token events by operation_Id/request_id
+| Criterion                                    | Status     | Notes                                     |
+| -------------------------------------------- | ---------- | ----------------------------------------- |
+| 100% of LLM calls emit token telemetry       | ✅ Done    | Via OTEL callback                         |
+| 100% include workflow + stage                | ⚠️ Partial | Requires upstream to pass metadata        |
+| Support KQL joins by operation_Id/request_id | ✅ Done    | OTEL spans include metadata               |
+| Request-completion rollup totals             | 🔜 Future  | Requires Phase 3 (downstream aggregation) |
 
 ## Dependencies
 
@@ -206,9 +222,16 @@ _Note: Method B requires additional LiteLLM configuration or middleware._
 
 ## Action Items
 
-1. ai-gateway: Build custom LiteLLM image with token telemetry callback
-2. cognitive-mesh: Ensure correlation headers are passed to gateway
-3. pvc-costops-analytics: Prepare KQL queries for new event shape
+### Completed
+
+1. ✅ ai-gateway: Add OTEL callback for token telemetry (Phase 1)
+2. ✅ ai-gateway: Document correlation ID requirements (Phase 2)
+
+### Pending
+
+3. cognitive-mesh: Pass correlation IDs in request metadata
+4. pvc-costops-analytics: Create KQL queries for OTEL span joins
+5. pvc-costops-analytics: Implement request rollup aggregation (Phase 3)
 
 ---
 
@@ -223,9 +246,9 @@ _Note: Method B requires additional LiteLLM configuration or middleware._
 
 ### Terraform Integration Notes
 
-When integrating with shared-infra (Mystira):
+**Recommendation:** ai-gateway keeps owning its Terraform in its repo. Mystira workspace treats ai-gateway as an external product that consumes shared-infra via an explicit "shared resource contract".
 
-1. **Module location**: Add product under `infra/terraform/products/ai-gateway/`
+1. **Module location**: ai-gateway owns its Terraform in this repo
 2. **Shared resources to consume**:
    - Log Analytics workspace from shared outputs
    - Key Vault for secrets (use managed identity to read)
