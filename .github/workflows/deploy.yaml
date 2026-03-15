@@ -35,7 +35,7 @@ jobs:
   plan:
     # PR into dev → dev | PR into main + label 'run-staging' → staging | Push to main/workflow_dispatch → prod
     # Skip plan for PRs from forks (no repo secrets; avoids AADSTS700213)
-    # Runtime UAT toggle: add PR label 'run-staging' to enable UAT on PRs into main.
+    # Runtime staging toggle: add PR label 'run-staging' to enable staging on PRs into main.
     if: |
       (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) &&
       (

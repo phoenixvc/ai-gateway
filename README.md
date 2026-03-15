@@ -104,6 +104,6 @@ pnpm format
 
 - [PRD](docs/PRD.md) – Product requirements
 - [Terraform Blueprint](docs/Terraform_Blueprint.md) – Infrastructure design
-- [CI/CD Runbook](docs/CI_CD.md) – workflow behavior, UAT toggle, smoke tests
+- [CI/CD Runbook](docs/CI_CD.md) – workflow behavior, staging toggle, smoke tests
 - [Azure OIDC Setup](docs/AZURE_OIDC_SETUP.md) – GitHub Actions OIDC configuration
 - [Secrets Checklist](docs/SECRETS.md) – Copy/paste setup for GitHub environment secrets

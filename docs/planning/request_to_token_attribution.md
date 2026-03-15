@@ -207,18 +207,18 @@ _Note: Method B requires additional LiteLLM configuration or middleware._
 
 ## Acceptance Criteria
 
-| Criterion                                    | Status    | Notes                                     |
-| -------------------------------------------- | --------- | ----------------------------------------- |
-| 100% of LLM calls emit token telemetry       | ✅ Done   | Via OTEL callback                         |
-| 100% include workflow + stage                | ✅ Done   | Metadata passed through to OTEL spans     |
-| Support KQL joins by operation_Id/request_id | ✅ Done   | OTEL spans include metadata               |
-| Request-completion rollup totals             | 🔜 Future | Requires Phase 3 (downstream aggregation) |
+| Criterion                                    | Status    | Notes                                                   |
+| -------------------------------------------- | --------- | ------------------------------------------------------- |
+| 100% of LLM calls emit token telemetry       | ✅ Done   | Via OTEL callback                                       |
+| 100% include workflow + stage                | 🔜 Ready  | Requires cognitive-mesh to pass metadata to gateway     |
+| Support KQL joins by operation_Id/request_id | 🔜 Ready  | Requires pvc-costops-analytics to implement KQL queries |
+| Request-completion rollup totals             | 🔜 Future | Requires Phase 3 (downstream aggregation)               |
 
 ## Dependencies
 
 - cognitive-mesh: Must pass correlation metadata to gateway
 - pvc-costops-analytics: Must create KQL queries for new event shape
-- infra: Application Insights added for trace storage
+- infra: Application Insights being added for trace storage
 
 ## Action Items
 

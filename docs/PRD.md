@@ -167,7 +167,7 @@ Gateway must expose:
 
 1.  Roo/Qoder can use gateway for coding with configured model (default `gpt-5.3-codex`) without `chatCompletion operation does not work`.
 2.  Codebase indexing completes using embeddings through the gateway.
-3.  Dev/UAT/Prod are reproducible via Terraform + Actions.
+3.  Dev/staging/Prod are reproducible via Terraform + Actions.
 4.  No secrets committed.
 
 ## 11) Risks & mitigations
@@ -180,5 +180,5 @@ Gateway must expose:
 
 - M0: Repo setup, Bootstrap scripts (OIDC, State Backend).
 - M1: Dev env deployed; smoke tests pass; Roo works.
-- M2: UAT + Prod; environment approvals.
+- M2: staging + Prod; environment approvals.
 - M3: Hardening (Front Door/WAF, Entra auth).
