@@ -24,7 +24,7 @@ flowchart TD
 
 ## CRITICAL: SLM is for Reporting Only
 
-```
+```text
 ┌─────────────────────────────────────────────────────────┐
 │                   IMPORTANT - SAFETY BOUNDARY            │
 ├─────────────────────────────────────────────────────────┤
@@ -109,7 +109,7 @@ interface SuggestSopOutput {
 ```typescript
 const DEFAULT_THRESHOLDS = {
   operator_summary: { direct_use: 0.8, facts_only: 0.65 },
-  sop_suggestion: { direct_suggest: 0.78, manual_lookup: 0.65 },
+  sop_suggestion: { direct_suggest: 0.8, manual_lookup: 0.65 },
 };
 ```
 

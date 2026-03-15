@@ -4,7 +4,7 @@ AgentKit Forge builds AI agents and orchestration workflows. SLMs help when agen
 
 ## Architecture
 
-```
+```text
 Agent Task
       │
       ▼

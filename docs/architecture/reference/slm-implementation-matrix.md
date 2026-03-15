@@ -15,13 +15,13 @@ This document provides a repo-by-repo implementation matrix showing SLM endpoint
 
 ## Documentation Structure
 
-```
+```text
 reference/
 ├── slm-implementation-matrix.md      # This file
 ├── matrix-gateway.md                  # AI Gateway details
 ├── matrix-cognitive-mesh.md          # Cognitive Mesh details
-├── matrix-codeflow.md                # CodeFlow Engine details
-├── matrix-agentkit.md                # AgentKit Forge details
+├── matrix-codeflow.md                 # CodeFlow Engine details
+├── matrix-agentkit.md                 # AgentKit Forge details
 ├── matrix-rooivalk.md                # PhoenixRooivalk details
 └── matrix-mystira.md                 # Mystira details
 ```
@@ -251,7 +251,7 @@ This is a practical role map, not a vendor mandate.
 
 ### Standard Fallback Pattern
 
-```
+```text
 1. SLM timeout → Deterministic rules
 2. Low confidence → LLM escalation
 3. Safety critical → Block immediately

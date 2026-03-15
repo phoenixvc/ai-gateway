@@ -34,8 +34,9 @@ flowchart TB
 
     subgraph Ingest
         I1[OpenTelemetry]
-        I2[Azure Monitor]
+        I2[Application Insights]
         I3[Blob Export]
+        I4[Prometheus]
     end
 
     subgraph Analytics
@@ -62,14 +63,38 @@ flowchart TB
     S4 --> I1
     S5 --> I2
     S6 --> I3
+    S5 --> I4
 
     I1 --> A1
     I2 --> A1
     I3 --> A1
+    I4 --> V1
 
     A1 --> V1
     V1 --> V2
 ```
+
+### Telemetry Sinks
+
+LiteLLM enables Prometheus metrics via `success_callback` and `failure_callback` containing "prometheus". The Prometheus exporter exposes a `/metrics` endpoint which is scraped by Prometheus for application metrics collection. See `infra/modules/aigateway_aca/main.tf:95-113` for the container configuration.
+
+The primary telemetry sinks are:
+
+- **OpenTelemetry**: Traces and spans
+- **Application Insights**: Azure Monitor implementation using `APPLICATIONINSIGHTS_CONNECTION_STRING` env var for OTEL exporter
+- **Blob Export**: Raw event storage
+- **Prometheus**: Application metrics via `/metrics` endpoint
+
+## Retention Policies
+
+Application Insights retention defaults:
+
+- **Production**: 90 days
+- **Non-production (dev/staging)**: 30 days
+
+These are environment-specific settings configured in the Application Insights resource. Operators can adjust retention in the Azure Portal under Application Insights resource settings.
+
+Include retention expectations in operational runbooks to align cost and data availability expectations.
 
 ## Key Metrics
 

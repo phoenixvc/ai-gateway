@@ -41,15 +41,25 @@ flowchart TD
 
 ```json
 {
-  "intent": "code_review",
+  "request_id": "req_abc123",
+  "label": "code_review",
   "complexity": "medium",
   "tool_candidate": true,
-  "recommended_target": "codeflow-engine",
-  "recommended_model_tier": "small",
-  "escalation_required": false,
+  "recommended_tier": "slm",
+  "cacheable": true,
   "confidence": 0.93
 }
 ```
+
+> **Migration Note (v1.0.0)**: The response contract has been updated. Legacy field names `intent`, `recommended_target`, `recommended_model_tier`, and `escalation_required` are deprecated. Update clients to use the new fields:
+>
+> - `intent` → `label`
+> - `recommended_target` → removed (use `recommended_tier` for routing)
+> - `recommended_model_tier` → `recommended_tier`
+> - `escalation_required` → derive from `confidence < 0.75` threshold
+> - `cacheable` is a new field (previously not returned)
+>
+> **Deprecation window**: Legacy fields will be removed in v1.2.0. Clients should update by then. For backwards compatibility, implement fallback logic checking both old and new field names.
 
 ## Contract Shapes
 
@@ -91,7 +101,7 @@ interface PolicyScreenOutput {
 | Condition                        | Action                 |
 | -------------------------------- | ---------------------- |
 | `policy-screen.allowed == false` | Block or redact        |
-| `confidence < 0.70`              | Escalate to LLM        |
+| `confidence < 0.75`              | Escalate to LLM        |
 | Tool suggested but no mapping    | Send to general LLM    |
 | Tagging fails                    | Mark telemetry partial |
 

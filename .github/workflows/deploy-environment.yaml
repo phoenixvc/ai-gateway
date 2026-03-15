@@ -32,13 +32,37 @@ on:
         required: false
         type: string
         default: "15"
-        description: Wait sleep for model registration
+        description: Sleep seconds between model availability checks
+      smoke_models_wait_attempts:
+        required: false
+        type: string
+        default: "1"
+        description: Number of attempts to wait for models to become available
       include_aoai_host_check:
         required: false
         type: boolean
         default: false
         description: Include AOAI endpoint host validation
+      environment:
+        required: false
+        type: string
+        default: ""
+        description: GitHub environment to use
     secrets:
+      AZURE_CLIENT_ID:
+        required: true
+      AZURE_TENANT_ID:
+        required: true
+      AZURE_SUBSCRIPTION_ID:
+        required: true
+      TF_BACKEND_RG:
+        required: true
+      TF_BACKEND_SA:
+        required: true
+      TF_BACKEND_CONTAINER:
+        required: true
+      EXPECTED_AOAI_ENDPOINT_HOST:
+        required: false
       AZURE_OPENAI_ENDPOINT:
         required: true
       AZURE_OPENAI_API_KEY:
@@ -49,8 +73,25 @@ on:
         required: true
       AIGATEWAY_KEY:
         required: true
+      STATE_SERVICE_CONTAINER_IMAGE:
+        required: false
+      STATE_SERVICE_SHARED_TOKEN:
+        required: false
+      STATE_SERVICE_REGISTRY_PASSWORD:
+        required: false
+      DASHBOARD_CONTAINER_IMAGE:
+        required: false
+      GRAFANA_URL:
+        required: false
 
 env:
+  AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  TF_BACKEND_RG: ${{ secrets.TF_BACKEND_RG }}
+  TF_BACKEND_SA: ${{ secrets.TF_BACKEND_SA }}
+  TF_BACKEND_CONTAINER: ${{ secrets.TF_BACKEND_CONTAINER }}
+  EXPECTED_AOAI_ENDPOINT_HOST: ${{ secrets.EXPECTED_AOAI_ENDPOINT_HOST }}
   TF_VAR_env: ${{ inputs.env_name }}
   TF_VAR_projname: "aigateway"
   TF_VAR_location: "southafricanorth"
@@ -64,10 +105,15 @@ env:
   TF_VAR_codex_api_version: ${{ inputs.codex_api_version }}
   TF_VAR_embedding_deployment: "text-embedding-3-large"
   TF_VAR_embeddings_api_version: "2024-02-01"
+  TF_VAR_state_service_container_image: ${{ secrets.STATE_SERVICE_CONTAINER_IMAGE }}
+  TF_VAR_secrets_expiration_date: "2027-03-31T00:00:00Z"
+  TF_VAR_dashboard_container_image: ${{ secrets.DASHBOARD_CONTAINER_IMAGE || 'ghcr.io/phoenixvc/ai-gateway-dashboard:latest' }}
+  TF_VAR_grafana_url: ${{ secrets.GRAFANA_URL }}
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment: ${{ inputs.environment || inputs.env_name }}
     defaults:
       run:
         working-directory: ${{ inputs.terraform_working_directory }}
@@ -208,7 +254,7 @@ jobs:
           aoai_api_key: ${{ env.TF_VAR_azure_openai_api_key }}
           max_attempts: "3"
           retry_sleep: ${{ inputs.smoke_retry_sleep }}
-          models_wait_attempts: ${{ if(inputs.env_name == 'prod', '3', '1') }}
+          models_wait_attempts: ${{ inputs.smoke_models_wait_attempts }}
           models_wait_sleep: ${{ inputs.smoke_models_wait_sleep }}
 
       - name: Smoke test shared state API (dashboard proxy)

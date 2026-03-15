@@ -4,7 +4,7 @@ Cognitive Mesh architectures orchestrate multiple AI agents and tools. The SLM i
 
 ## Architecture
 
-```
+```text
 User Query
       │
       ▼
@@ -143,7 +143,7 @@ async def compress_context(messages: list[Message]) -> Compressed:
 
 | Pros                            | Cons                                            |
 | ------------------------------- | ----------------------------------------------- |
-| Very large token savings        | Decomposition quality can bottleneck workflow   |
+| Large token savings             | Decomposition quality can bottleneck workflow   |
 | Better determinism              | Brittle routing if taxonomy is poor             |
 | Easier specialist orchestration | Harder debugging if confidence handling is weak |
 | Improved auditability           |                                                 |

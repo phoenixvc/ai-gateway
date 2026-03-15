@@ -4,7 +4,7 @@ PhoenixRooivalk is an edge AI counter-UAS (Unmanned Aerial System) system. **SLM
 
 ## Architecture
 
-```
+```text
 Sensors
   │
   ▼
