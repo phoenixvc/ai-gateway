@@ -3,7 +3,7 @@
 This canvas includes a working Terraform scaffold:
 
 - `infra/modules/aigateway_aca`
-- `infra/env/dev|uat|prod`
+- `infra/env/dev|staging|prod`
 - Shared state configured via `terraform init -backend-config=...` in GitHub Actions
 
 > Notes:
@@ -27,7 +27,7 @@ infra/
       main.tf
       variables.tf
       terraform.tfvars
-    uat/
+    staging/
       main.tf
       variables.tf
       terraform.tfvars
@@ -44,7 +44,7 @@ infra/
 ```hcl
 variable "env" {
   type        = string
-  description = "Environment name (dev|uat|prod)"
+  description = "Environment name (dev|staging|prod)"
 }
 
 variable "projname" {
@@ -343,7 +343,7 @@ output "key_vault_name" {
 
 ## 5) Env stacks
 
-### 5.1 `infra/env/dev/variables.tf` (repeat for uat/prod)
+### 5.1 `infra/env/dev/variables.tf` (repeat for staging/prod)
 
 ```hcl
 variable "env" { type = string }
@@ -441,7 +441,7 @@ tags = {
 }
 ```
 
-Repeat the env folders for `uat` and `prod`, changing only `env` and tags.
+Repeat the env folders for `staging` and `prod`, changing only `env` and tags.
 
 ---
 

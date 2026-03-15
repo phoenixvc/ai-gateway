@@ -6,15 +6,15 @@ This document describes the current GitHub Actions deployment behavior for `ai-g
 
 - PRs from forks are skipped for deployment-related jobs (no repo secrets).
 - PRs targeting `dev` run `plan` + `deploy-dev`.
-- PRs targeting `main` run UAT only when the PR has label `run-uat`.
+- PRs targeting `main` run staging only when the PR has label `run-staging`.
 - Push to `main` and `workflow_dispatch` run `plan` + `deploy-prod`.
 
-## Runtime UAT toggle
+## Runtime staging toggle
 
-UAT deployment for PRs to `main` is controlled by PR label:
+staging deployment for PRs to `main` is controlled by PR label:
 
-- Add label `run-uat` to enable `deploy-uat` for that PR.
-- Remove label `run-uat` to disable UAT for that PR.
+- Add label `run-staging` to enable `deploy-staging` for that PR.
+- Remove label `run-staging` to disable staging for that PR.
 
 ## Smoke test behavior
 

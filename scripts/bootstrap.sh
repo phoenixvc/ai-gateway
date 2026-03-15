@@ -13,7 +13,7 @@ GITHUB_REPO="$2"
 SCOPE="$3"
 
 # --- Configuration ---
-# Shared infra: OIDC app and TF state span dev/uat/prod
+# Shared infra: OIDC app and TF state span dev/staging/prod
 LOCATION="southafricanorth"
 RG_NAME="pvc-shared-tfstate-rg-san"
 CONTAINER_NAME="tfstate"
@@ -119,9 +119,9 @@ OBJECT_ID=$(az ad app show --id "$APP_ID" --query id --output tsv)
 
 AIGATEWAY_KEY=$(openssl rand -base64 32 2>/dev/null || head -c 32 /dev/urandom | base64)
 
-echo "Ensuring Federated Credentials for GitHub Actions (environments: dev, uat, prod)..."
+echo "Ensuring Federated Credentials for GitHub Actions (environments: dev, staging, prod)..."
 command -v jq >/dev/null 2>&1 || { echo "Error: jq is required for safe JSON construction. Install jq and retry."; exit 1; }
-for ENV in dev uat prod; do
+for ENV in dev staging prod; do
   SUBJECT="repo:$GITHUB_ORG/$GITHUB_REPO:environment:$ENV"
   EXISTING_SUBJECT=$(az ad app federated-credential list --id "$OBJECT_ID" --query "[?name=='github-actions-$ENV'].subject" -o tsv 2>/dev/null | head -n1)
   if [ -n "$EXISTING_SUBJECT" ] && [ "$EXISTING_SUBJECT" = "$SUBJECT" ]; then

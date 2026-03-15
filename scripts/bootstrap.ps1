@@ -120,8 +120,8 @@ $bytes = New-Object byte[] 32
 [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
 $AIGATEWAY_KEY = [Convert]::ToBase64String($bytes)
 
-Write-Host "Ensuring Federated Credentials for GitHub Actions (environments: dev, uat, prod)..."
-foreach ($EnvName in @("dev","uat","prod")) {
+Write-Host "Ensuring Federated Credentials for GitHub Actions (environments: dev, staging, prod)..."
+foreach ($EnvName in @("dev","staging","prod")) {
     $SUBJECT = "repo:" + $GITHUB_ORG + "/" + $GITHUB_REPO + ":environment:" + $EnvName
     $EXISTING_SUBJECT = az ad app federated-credential list --id $OBJECT_ID --query "[?name=='github-actions-$EnvName'].subject" -o tsv 2>$null | Select-Object -First 1
     if ($EXISTING_SUBJECT -and ($EXISTING_SUBJECT -eq $SUBJECT)) {

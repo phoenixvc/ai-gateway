@@ -28,7 +28,7 @@ Creates the shared resource group, storage account, and container for Terraform 
 
 ### 2. Add GitHub secrets
 
-Add these secrets to each GitHub **Environment** (dev, uat, prod): **Settings → Environments → &lt;env&gt; → Environment secrets**.
+Add these secrets to each GitHub **Environment** (dev, staging, prod): **Settings → Environments → &lt;env&gt; → Environment secrets**.
 
 | Secret                  | Description                       | Example                                       |
 | ----------------------- | --------------------------------- | --------------------------------------------- |
@@ -53,16 +53,16 @@ Bootstrap prints these values. For local runs, copy `infra/.env.local.example` t
 **Bash:**
 
 ```bash
-./infra/scripts/terraform-init.sh dev   # or uat, prod
+./infra/scripts/terraform-init.sh dev   # or staging, prod
 ```
 
 **PowerShell:**
 
 ```powershell
-.\infra\scripts\terraform-init.ps1 -Env dev   # or uat, prod
+.\infra\scripts\terraform-init.ps1 -Env dev   # or staging, prod
 ```
 
-Valid environments: `dev`, `uat`, `prod`.
+Valid environments: `dev`, `staging`, `prod`.
 
 ### 4. Plan and apply
 
@@ -74,11 +74,11 @@ terraform apply
 
 ## Environments
 
-| Env  | Purpose         |
-| ---- | --------------- |
-| dev  | Development     |
-| uat  | User acceptance |
-| prod | Production      |
+| Env     | Purpose     |
+| ------- | ----------- |
+| dev     | Development |
+| staging | Staging     |
+| prod    | Production  |
 
 ## CI/CD
 

@@ -15,10 +15,10 @@
 - [ ] No environment/config changes required
 - [ ] Environment/config changes required (describe below)
 
-## UAT Toggle (PRs to `main`)
+## Staging Toggle (PRs to `main`)
 
-- Add label `run-uat` to this PR to enable UAT deployment (`deploy-uat`).
-- Remove label `run-uat` to skip UAT deployment.
+- Add label `run-staging` to this PR to enable staging deployment (`deploy-staging`).
+- Remove label `run-staging` to skip staging deployment.
 
 ## Risk / Rollback
 

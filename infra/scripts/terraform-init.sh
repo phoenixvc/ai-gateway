@@ -1,15 +1,15 @@
 #!/bin/bash
 # Load .env.local and run terraform init -upgrade
-# Usage: ./infra/scripts/terraform-init.sh [dev|uat|prod]
+# Usage: ./infra/scripts/terraform-init.sh [dev|staging|prod]
 
 set -e
 
-ENV="${1:?Usage: $0 dev|uat|prod}"
+ENV="${1:?Usage: $0 dev|staging|prod}"
 case "$ENV" in
-    dev|uat|prod) ;;
+    dev|staging|prod) ;;
     *)
-        echo "Usage: $0 dev|uat|prod"
-        echo "Error: ENV must be dev, uat, or prod; got: $ENV"
+        echo "Usage: $0 dev|staging|prod"
+        echo "Error: ENV must be dev, staging, or prod; got: $ENV"
         exit 1
         ;;
 esac

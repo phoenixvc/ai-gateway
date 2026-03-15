@@ -128,6 +128,15 @@ resource "azurerm_log_analytics_workspace" "law" {
   tags                = local.tags
 }
 
+resource "azurerm_application_insights" "ai" {
+  name                = "${local.prefix}-ai-${var.location_short}"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+  application_type    = "web"
+  retention_in_days   = var.env == "prod" ? 90 : 30
+  tags                = local.tags
+}
+
 resource "azurerm_container_app_environment" "cae" {
   name                       = local.cae_name
   location                   = azurerm_resource_group.rg.location
@@ -245,6 +254,15 @@ resource "azurerm_key_vault_secret" "langfuse_secret_key" {
   depends_on = [azurerm_key_vault_access_policy.terraform_client]
 }
 
+resource "azurerm_key_vault_secret" "appinsights_connection_string" {
+  name            = "appinsights-connection-string"
+  value           = azurerm_application_insights.ai.connection_string
+  key_vault_id    = azurerm_key_vault.kv.id
+  expiration_date = var.secrets_expiration_date
+
+  depends_on = [azurerm_key_vault_access_policy.terraform_client]
+}
+
 resource "azurerm_user_assigned_identity" "ca" {
   name                = "${local.ca_name}-id"
   resource_group_name = azurerm_resource_group.rg.name
@@ -328,6 +346,12 @@ resource "azurerm_container_app" "ca" {
       key_vault_secret_id = azurerm_key_vault_secret.langfuse_secret_key[0].versionless_id
       identity            = azurerm_user_assigned_identity.ca.id
     }
+  }
+
+  secret {
+    name                = "appinsights-connection-string"
+    key_vault_secret_id = azurerm_key_vault_secret.appinsights_connection_string.versionless_id
+    identity            = azurerm_user_assigned_identity.ca.id
   }
 
   template {
@@ -427,6 +451,13 @@ resource "azurerm_container_app" "ca" {
           name  = "OTEL_EXPORTER_OTLP_PROTOCOL"
           value = env.value
         }
+      }
+
+      # Azure Application Insights connection string (for azure-monitor-opentelemetry exporter)
+      # Use with custom LiteLLM image that includes azure-monitor-opentelemetry package
+      env {
+        name        = "APPLICATIONINSIGHTS_CONNECTION_STRING"
+        secret_name = "appinsights-connection-string"
       }
 
       # LiteLLM commonly listens on 4000; set port as needed

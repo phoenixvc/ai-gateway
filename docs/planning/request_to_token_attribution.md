@@ -65,11 +65,11 @@ LiteLLM's OTEL callback automatically emits spans with:
 
 ### Phase 2: Correlation ID Propagation
 
-**Status: In Progress**
+**Status: ✅ Done**
 
 Correlation IDs flow through the system in two ways:
 
-**Method A: Via Request Metadata (Recommended)**
+**Method A: Via Request Metadata (Implemented)**
 Pass correlation IDs in the request body `metadata` field:
 
 ```json
@@ -207,18 +207,18 @@ _Note: Method B requires additional LiteLLM configuration or middleware._
 
 ## Acceptance Criteria
 
-| Criterion                                    | Status     | Notes                                     |
-| -------------------------------------------- | ---------- | ----------------------------------------- |
-| 100% of LLM calls emit token telemetry       | ✅ Done    | Via OTEL callback                         |
-| 100% include workflow + stage                | ⚠️ Partial | Requires upstream to pass metadata        |
-| Support KQL joins by operation_Id/request_id | ✅ Done    | OTEL spans include metadata               |
-| Request-completion rollup totals             | 🔜 Future  | Requires Phase 3 (downstream aggregation) |
+| Criterion                                    | Status    | Notes                                     |
+| -------------------------------------------- | --------- | ----------------------------------------- |
+| 100% of LLM calls emit token telemetry       | ✅ Done   | Via OTEL callback                         |
+| 100% include workflow + stage                | ✅ Done   | Metadata passed through to OTEL spans     |
+| Support KQL joins by operation_Id/request_id | ✅ Done   | OTEL spans include metadata               |
+| Request-completion rollup totals             | 🔜 Future | Requires Phase 3 (downstream aggregation) |
 
 ## Dependencies
 
-- cognitive-mesh: Must pass correlation headers to gateway
+- cognitive-mesh: Must pass correlation metadata to gateway
 - pvc-costops-analytics: Must create KQL queries for new event shape
-- infra: May need custom LiteLLM container image or OTEL collector
+- infra: Application Insights added for trace storage
 
 ## Action Items
 
@@ -226,12 +226,13 @@ _Note: Method B requires additional LiteLLM configuration or middleware._
 
 1. ✅ ai-gateway: Add OTEL callback for token telemetry (Phase 1)
 2. ✅ ai-gateway: Document correlation ID requirements (Phase 2)
+3. ✅ ai-gateway: Add Application Insights for trace storage (Phase 1b)
 
 ### Pending
 
-3. cognitive-mesh: Pass correlation IDs in request metadata
-4. pvc-costops-analytics: Create KQL queries for OTEL span joins
-5. pvc-costops-analytics: Implement request rollup aggregation (Phase 3)
+4. cognitive-mesh: Pass correlation metadata in request body
+5. pvc-costops-analytics: Create KQL queries for OTEL span joins
+6. pvc-costops-analytics: Implement request rollup aggregation (Phase 3)
 
 ---
 

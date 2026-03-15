@@ -10,7 +10,7 @@ inputs:
     description: Project name component of the Container App name (TF_VAR_projname)
   env:
     required: true
-    description: Environment name (dev|uat|prod)
+    description: Environment name (dev|staging|prod)
   location_short:
     required: true
     description: Short location code (TF_VAR_location_short)

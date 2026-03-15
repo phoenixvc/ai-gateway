@@ -15,7 +15,7 @@ Roo/Qoder currently struggles with Azure model/operation mismatches. A gateway n
 2.  Support:
     - `POST /v1/responses` routed to Azure **Responses** endpoint for configurable model (default: `gpt-5.3-codex`).
     - `POST /v1/embeddings` routed to Azure embeddings deployment.
-3.  Enable **multiple environments** (dev/uat/prod) and **multiple downstream projects**.
+3.  Enable **multiple environments** (dev/staging/prod) and **multiple downstream projects**.
 4.  Infrastructure managed with **Terraform**.
 5.  CI/CD via **GitHub Actions** using **Azure OIDC** (no long-lived secrets).
 6.  “Get it working” first; hardening follows.
@@ -150,7 +150,7 @@ Gateway must expose:
   - `docs/` - Documentation.
   - `infra/`
     - `modules/aigateway_aca` - Core Terraform module.
-    - `env/dev|uat|prod` - Environment-specific configurations.
+    - `env/dev|staging|prod` - Environment-specific configurations.
   - `.github/workflows/` - CI/CD pipelines.
   - `scripts/` - Helper scripts (bootstrap).
 
@@ -161,7 +161,7 @@ Gateway must expose:
 - **Phase 1: Terraform & CI/CD**
   - Terraform defines infra.
   - GitHub Actions deploys using Azure OIDC.
-  - Dev auto-apply on merge; UAT/Prod gated with environment approvals.
+  - Dev auto-apply on merge; Staging/Prod gated with environment approvals.
 
 ## 10) Acceptance criteria
 
