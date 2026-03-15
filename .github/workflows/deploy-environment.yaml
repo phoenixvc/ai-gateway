@@ -28,11 +28,11 @@ on:
         type: string
         default: "10"
         description: Retry sleep for smoke tests
-      smoke_models_wait_sleep:
+      smoke_models_wait_attempts:
         required: false
         type: string
-        default: "15"
-        description: Wait sleep for model registration
+        default: "1"
+        description: Number of attempts to wait for models to become available
       include_aoai_host_check:
         required: false
         type: boolean
@@ -249,7 +249,7 @@ jobs:
           aoai_api_key: ${{ env.TF_VAR_azure_openai_api_key }}
           max_attempts: "3"
           retry_sleep: ${{ inputs.smoke_retry_sleep }}
-          models_wait_attempts: ${{ inputs.env_name == 'prod' && '3' || '1' }}
+          models_wait_attempts: ${{ inputs.smoke_models_wait_attempts }}
           models_wait_sleep: ${{ inputs.smoke_models_wait_sleep }}
 
       - name: Smoke test shared state API (dashboard proxy)

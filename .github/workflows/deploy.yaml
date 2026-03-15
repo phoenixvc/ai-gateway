@@ -159,6 +159,7 @@ jobs:
       terraform_working_directory: infra/env/dev
       smoke_retry_sleep: "10"
       smoke_models_wait_sleep: "15"
+      smoke_models_wait_attempts: "1"
       include_aoai_host_check: false
       environment: dev
     secrets:
@@ -193,6 +194,7 @@ jobs:
       terraform_working_directory: infra/env/staging
       smoke_retry_sleep: "10"
       smoke_models_wait_sleep: "15"
+      smoke_models_wait_attempts: "1"
       include_aoai_host_check: false
       environment: staging
     secrets:
@@ -227,6 +229,7 @@ jobs:
       terraform_working_directory: infra/env/prod
       smoke_retry_sleep: "15"
       smoke_models_wait_sleep: "30"
+      smoke_models_wait_attempts: "3"
       include_aoai_host_check: true
       environment: prod
     secrets:
