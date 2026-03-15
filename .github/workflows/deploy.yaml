@@ -149,539 +149,67 @@ jobs:
   deploy-dev:
     name: Deploy dev
     needs: plan
-    runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev'
     environment: dev
-    defaults:
-      run:
-        working-directory: infra/env/dev
-
-    env:
-      TF_VAR_env: "dev"
-      TF_VAR_projname: "aigateway"
-      TF_VAR_location: "southafricanorth"
-      TF_VAR_location_short: "san"
-      TF_VAR_azure_openai_endpoint: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
-      TF_VAR_azure_openai_api_key: ${{ secrets.AZURE_OPENAI_API_KEY }}
-      TF_VAR_azure_openai_embedding_endpoint: ${{ secrets.AZURE_OPENAI_EMBEDDING_ENDPOINT }}
-      TF_VAR_azure_openai_embedding_api_key: ${{ secrets.AZURE_OPENAI_EMBEDDING_API_KEY }}
-      TF_VAR_gateway_key: ${{ secrets.AIGATEWAY_KEY }}
-      TF_VAR_codex_model: "gpt-5.3-codex"
-      TF_VAR_codex_api_version: "2025-04-01-preview"
-      TF_VAR_embedding_deployment: "text-embedding-3-large"
-      TF_VAR_embeddings_api_version: "2024-02-01"
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Quickcheck required secrets and config
-        shell: bash
-        run: |
-          set -euo pipefail
-          missing=0
-          required=(
-            AZURE_CLIENT_ID
-            AZURE_TENANT_ID
-            AZURE_SUBSCRIPTION_ID
-            TF_BACKEND_RG
-            TF_BACKEND_SA
-            TF_BACKEND_CONTAINER
-            TF_VAR_azure_openai_endpoint
-            TF_VAR_azure_openai_api_key
-            TF_VAR_gateway_key
-          )
-          for v in "${required[@]}"; do
-            if [ -z "${!v:-}" ]; then
-              echo "::error::Missing required value: ${v}"
-              missing=1
-            else
-              echo "${v}=SET"
-            fi
-          done
-          echo "TF_VAR_env=${TF_VAR_env:-unset}"
-          echo "TF_VAR_embedding_deployment=${TF_VAR_embedding_deployment:-unset}"
-          echo "TF_VAR_codex_model=${TF_VAR_codex_model:-unset}"
-          if [ -n "${TF_VAR_azure_openai_endpoint:-}" ]; then
-            echo "Azure OpenAI endpoint=${TF_VAR_azure_openai_endpoint}"
-            endpoint_host=$(echo "${TF_VAR_azure_openai_endpoint}" | sed -E 's#^https?://([^/]+)/?.*$#\1#')
-            echo "Azure OpenAI endpoint host=${endpoint_host}"
-          fi
-          if [ "${missing}" -ne 0 ]; then
-            exit 1
-          fi
-
-      - name: Azure Login
-        uses: azure/login@v2
-        with:
-          client-id: ${{ env.AZURE_CLIENT_ID }}
-          tenant-id: ${{ env.AZURE_TENANT_ID }}
-          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.14.6
-
-      - name: Terraform Init
-        run: |
-          terraform init \
-            -backend-config="resource_group_name=${TF_BACKEND_RG}" \
-            -backend-config="storage_account_name=${TF_BACKEND_SA}" \
-            -backend-config="container_name=${TF_BACKEND_CONTAINER}" \
-            -backend-config="key=dev.terraform.tfstate"
-
-      - name: Import existing Container App into Terraform state
-        uses: ./.github/actions/import-container-app
-        with:
-          projname: ${{ env.TF_VAR_projname }}
-          env: ${{ env.TF_VAR_env }}
-          location_short: ${{ env.TF_VAR_location_short }}
-          subscription_id: ${{ env.AZURE_SUBSCRIPTION_ID }}
-          terraform_working_directory: infra/env/dev
-
-      - name: Terraform Plan
-        run: |
-          terraform plan -out=tfplan
-
-      - name: Terraform Apply
-        run: |
-          terraform apply -auto-approve tfplan
-
-      - name: Get gateway URL
-        id: gw
-        run: echo "url=$(terraform output -raw gateway_url)" >> $GITHUB_OUTPUT
-
-      - name: Get dashboard URL
-        id: db
-        run: echo "url=$(terraform output -raw dashboard_url 2>/dev/null || true)" >> $GITHUB_OUTPUT
-
-      - name: Runtime diagnostics (Container App config)
-        shell: bash
-        run: |
-          set -euo pipefail
-          RG_NAME="pvc-${TF_VAR_env}-${TF_VAR_projname}-rg-${TF_VAR_location_short}"
-          CA_NAME="pvc-${TF_VAR_env}-${TF_VAR_projname}-ca-${TF_VAR_location_short}"
-          echo "Resource Group: ${RG_NAME}"
-          echo "Container App: ${CA_NAME}"
-          echo "Gateway URL (terraform output): ${{ steps.gw.outputs.url }}"
-          echo "Latest revision:"
-          az containerapp show -g "${RG_NAME}" -n "${CA_NAME}" --query "properties.latestRevisionName" -o tsv
-          echo "Active revisions (name, active, created):"
-          az containerapp revision list -g "${RG_NAME}" -n "${CA_NAME}" --query "[].{name:name,active:properties.active,created:properties.createdTime}" -o table
-          echo "Configured env vars for LiteLLM secret refs:"
-          az containerapp show -g "${RG_NAME}" -n "${CA_NAME}" --query "properties.template.containers[0].env[?name=='LITELLM_AZURE_OPENAI_API_KEY' || name=='LITELLM_GATEWAY_KEY']" -o json
-          echo "Configured secret sources (names + key vault URLs):"
-          az containerapp show -g "${RG_NAME}" -n "${CA_NAME}" --query "properties.configuration.secrets[].{name:name,keyVaultUrl:keyVaultUrl}" -o table
-          echo "LITELLM_CONFIG_CONTENT excerpt (first 2000 chars):"
-          az containerapp show -g "${RG_NAME}" -n "${CA_NAME}" --query "properties.template.containers[0].env[?name=='LITELLM_CONFIG_CONTENT'].value | [0]" -o tsv | head -c 2000 || true
-          echo
-
-      - name: Integration test (Azure OpenAI backend)
-        shell: bash
-        env:
-          AZURE_OPENAI_ENDPOINT: ${{ env.TF_VAR_azure_openai_endpoint }}
-          AZURE_OPENAI_API_KEY: ${{ env.TF_VAR_azure_openai_api_key }}
-          AZURE_OPENAI_EMBEDDING_ENDPOINT: ${{ env.TF_VAR_azure_openai_embedding_endpoint }}
-          AZURE_OPENAI_EMBEDDING_API_KEY: ${{ env.TF_VAR_azure_openai_embedding_api_key }}
-          AZURE_OPENAI_EMBEDDING_DEPLOYMENT: ${{ env.TF_VAR_embedding_deployment }}
-          AZURE_OPENAI_API_VERSION: ${{ env.TF_VAR_embeddings_api_version }}
-          AZURE_OPENAI_CHAT_DEPLOYMENT: "gpt-4.1"
-          AZURE_OPENAI_CHAT_API_VERSION: ${{ env.TF_VAR_codex_api_version }}
-          AZURE_OPENAI_CODEX_MODEL: ${{ env.TF_VAR_codex_model }}
-        working-directory: ${{ github.workspace }}
-        run: python3 scripts/integration_test.py
-
-      - name: Smoke test gateway (embeddings + responses)
-        uses: ./.github/actions/smoke-test-gateway
-        with:
-          gateway_url: ${{ steps.gw.outputs.url }}
-          gateway_key: ${{ secrets.AIGATEWAY_KEY }}
-          embedding_model: ${{ env.TF_VAR_embedding_deployment }}
-          codex_model: ${{ env.TF_VAR_codex_model }}
-          aoai_endpoint: ${{ env.TF_VAR_azure_openai_endpoint }}
-          aoai_api_key: ${{ env.TF_VAR_azure_openai_api_key }}
-          max_attempts: "3"
-          retry_sleep: "10"
-
-      - name: Smoke test shared state API (dashboard proxy)
-        if: env.TF_VAR_state_service_container_image != ''
-        shell: bash
-        run: |
-          set -euo pipefail
-          DASHBOARD_URL="${{ steps.db.outputs.url }}"
-          TEST_USER="ci-smoke-${TF_VAR_env}"
-
-          curl -fsS --connect-timeout 5 --max-time 15 "${DASHBOARD_URL}/api/state/catalog" > /tmp/catalog.json
-
-          curl -fsS --connect-timeout 5 --max-time 15 -X PUT "${DASHBOARD_URL}/api/state/selection" \
-            -H "Content-Type: application/json" \
-            -H "X-User-Id: ${TEST_USER}" \
-            -d '{"enabled":true,"selected_model":"'"${TF_VAR_codex_model}"'"}' > /tmp/selection-put.json
-
-          curl -fsS --connect-timeout 5 --max-time 15 "${DASHBOARD_URL}/api/state/selection" \
-            -H "X-User-Id: ${TEST_USER}" > /tmp/selection-get.json
-
-          jq -e '.enabled == true' /tmp/selection-get.json > /dev/null
+    uses: ./.github/workflows/deploy-environment.yaml
+    with:
+      env_name: dev
+      tf_state_key: dev.terraform.tfstate
+      codex_model: gpt-5.3-codex
+      codex_api_version: 2025-04-01-preview
+      terraform_working_directory: infra/env/dev
+      smoke_retry_sleep: "10"
+      smoke_models_wait_sleep: "15"
+      include_aoai_host_check: false
+    secrets:
+      AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
+      AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
+      AZURE_OPENAI_EMBEDDING_ENDPOINT: ${{ secrets.AZURE_OPENAI_EMBEDDING_ENDPOINT }}
+      AZURE_OPENAI_EMBEDDING_API_KEY: ${{ secrets.AZURE_OPENAI_EMBEDDING_API_KEY }}
+      AIGATEWAY_KEY: ${{ secrets.AIGATEWAY_KEY }}
 
   deploy-staging:
     name: Deploy staging
     needs: plan
-    runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'main' && contains(join(github.event.pull_request.labels.*.name, ','), 'run-staging')
     environment: staging
-    defaults:
-      run:
-        working-directory: infra/env/staging
-
-    env:
-      TF_VAR_env: "staging"
-      TF_VAR_projname: "aigateway"
-      TF_VAR_location: "southafricanorth"
-      TF_VAR_location_short: "san"
-      TF_VAR_azure_openai_endpoint: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
-      TF_VAR_azure_openai_api_key: ${{ secrets.AZURE_OPENAI_API_KEY }}
-      TF_VAR_azure_openai_embedding_endpoint: ${{ secrets.AZURE_OPENAI_EMBEDDING_ENDPOINT }}
-      TF_VAR_azure_openai_embedding_api_key: ${{ secrets.AZURE_OPENAI_EMBEDDING_API_KEY }}
-      TF_VAR_gateway_key: ${{ secrets.AIGATEWAY_KEY }}
-      TF_VAR_codex_model: "gpt-5.3-codex"
-      TF_VAR_codex_api_version: "2025-04-01-preview"
-      TF_VAR_embedding_deployment: "text-embedding-3-large"
-      TF_VAR_embeddings_api_version: "2024-02-01"
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Quickcheck required secrets and config
-        shell: bash
-        run: |
-          set -euo pipefail
-          missing=0
-          required=(
-            AZURE_CLIENT_ID
-            AZURE_TENANT_ID
-            AZURE_SUBSCRIPTION_ID
-            TF_BACKEND_RG
-            TF_BACKEND_SA
-            TF_BACKEND_CONTAINER
-            TF_VAR_azure_openai_endpoint
-            TF_VAR_azure_openai_api_key
-            TF_VAR_gateway_key
-          )
-          for v in "${required[@]}"; do
-            if [ -z "${!v:-}" ]; then
-              echo "::error::Missing required value: ${v}"
-              missing=1
-            else
-              echo "${v}=SET"
-            fi
-          done
-          echo "TF_VAR_env=${TF_VAR_env:-unset}"
-          echo "TF_VAR_embedding_deployment=${TF_VAR_embedding_deployment:-unset}"
-          echo "TF_VAR_codex_model=${TF_VAR_codex_model:-unset}"
-          if [ -n "${TF_VAR_azure_openai_endpoint:-}" ]; then
-            echo "Azure OpenAI endpoint=${TF_VAR_azure_openai_endpoint}"
-            endpoint_host=$(echo "${TF_VAR_azure_openai_endpoint}" | sed -E 's#^https?://([^/]+)/?.*$#\1#')
-            echo "Azure OpenAI endpoint host=${endpoint_host}"
-          fi
-          if [ "${missing}" -ne 0 ]; then
-            exit 1
-          fi
-
-      - name: Azure Login
-        uses: azure/login@v2
-        with:
-          client-id: ${{ env.AZURE_CLIENT_ID }}
-          tenant-id: ${{ env.AZURE_TENANT_ID }}
-          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.14.6
-
-      - name: Terraform Init
-        run: |
-          terraform init \
-            -backend-config="resource_group_name=${TF_BACKEND_RG}" \
-            -backend-config="storage_account_name=${TF_BACKEND_SA}" \
-            -backend-config="container_name=${TF_BACKEND_CONTAINER}" \
-            -backend-config="key=staging.terraform.tfstate"
-
-      - name: Import existing Container App into Terraform state
-        uses: ./.github/actions/import-container-app
-        with:
-          projname: ${{ env.TF_VAR_projname }}
-          env: ${{ env.TF_VAR_env }}
-          location_short: ${{ env.TF_VAR_location_short }}
-          subscription_id: ${{ env.AZURE_SUBSCRIPTION_ID }}
-          terraform_working_directory: infra/env/staging
-
-      - name: Terraform Plan
-        run: |
-          terraform plan -out=tfplan
-
-      - name: Terraform Apply
-        run: |
-          terraform apply -auto-approve tfplan
-
-      - name: Get gateway URL
-        id: gw
-        run: echo "url=$(terraform output -raw gateway_url)" >> $GITHUB_OUTPUT
-
-      - name: Get dashboard URL
-        id: db
-        run: echo "url=$(terraform output -raw dashboard_url 2>/dev/null || true)" >> $GITHUB_OUTPUT
-
-      - name: Runtime diagnostics (Container App config)
-        shell: bash
-        run: |
-          set -euo pipefail
-          RG_NAME="pvc-${TF_VAR_env}-${TF_VAR_projname}-rg-${TF_VAR_location_short}"
-          CA_NAME="pvc-${TF_VAR_env}-${TF_VAR_projname}-ca-${TF_VAR_location_short}"
-          echo "Resource Group: ${RG_NAME}"
-          echo "Container App: ${CA_NAME}"
-          echo "Gateway URL (terraform output): ${{ steps.gw.outputs.url }}"
-          echo "Latest revision:"
-          az containerapp show -g "${RG_NAME}" -n "${CA_NAME}" --query "properties.latestRevisionName" -o tsv
-          echo "Active revisions (name, active, created):"
-          az containerapp revision list -g "${RG_NAME}" -n "${CA_NAME}" --query "[].{name:name,active:properties.active,created:properties.createdTime}" -o table
-          echo "Configured env vars for LiteLLM secret refs:"
-          az containerapp show -g "${RG_NAME}" -n "${CA_NAME}" --query "properties.template.containers[0].env[?name=='LITELLM_AZURE_OPENAI_API_KEY' || name=='LITELLM_GATEWAY_KEY']" -o json
-          echo "Configured secret sources (names + key vault URLs):"
-          az containerapp show -g "${RG_NAME}" -n "${CA_NAME}" --query "properties.configuration.secrets[].{name:name,keyVaultUrl:keyVaultUrl}" -o table
-          echo "LITELLM_CONFIG_CONTENT excerpt (first 2000 chars):"
-          az containerapp show -g "${RG_NAME}" -n "${CA_NAME}" --query "properties.template.containers[0].env[?name=='LITELLM_CONFIG_CONTENT'].value | [0]" -o tsv | head -c 2000 || true
-          echo
-
-      - name: Integration test (Azure OpenAI backend)
-        shell: bash
-        env:
-          AZURE_OPENAI_ENDPOINT: ${{ env.TF_VAR_azure_openai_endpoint }}
-          AZURE_OPENAI_API_KEY: ${{ env.TF_VAR_azure_openai_api_key }}
-          AZURE_OPENAI_EMBEDDING_ENDPOINT: ${{ env.TF_VAR_azure_openai_embedding_endpoint }}
-          AZURE_OPENAI_EMBEDDING_API_KEY: ${{ env.TF_VAR_azure_openai_embedding_api_key }}
-          AZURE_OPENAI_EMBEDDING_DEPLOYMENT: ${{ env.TF_VAR_embedding_deployment }}
-          AZURE_OPENAI_API_VERSION: ${{ env.TF_VAR_embeddings_api_version }}
-          AZURE_OPENAI_CHAT_DEPLOYMENT: "gpt-4.1"
-          AZURE_OPENAI_CHAT_API_VERSION: ${{ env.TF_VAR_codex_api_version }}
-          AZURE_OPENAI_CODEX_MODEL: ${{ env.TF_VAR_codex_model }}
-        working-directory: ${{ github.workspace }}
-        run: python3 scripts/integration_test.py
-
-      - name: Smoke test gateway (embeddings + responses)
-        uses: ./.github/actions/smoke-test-gateway
-        with:
-          gateway_url: ${{ steps.gw.outputs.url }}
-          gateway_key: ${{ secrets.AIGATEWAY_KEY }}
-          embedding_model: ${{ env.TF_VAR_embedding_deployment }}
-          codex_model: ${{ env.TF_VAR_codex_model }}
-          aoai_endpoint: ${{ env.TF_VAR_azure_openai_endpoint }}
-          aoai_api_key: ${{ env.TF_VAR_azure_openai_api_key }}
-          max_attempts: "3"
-          retry_sleep: "10"
-
-      - name: Smoke test shared state API (dashboard proxy)
-        if: env.TF_VAR_state_service_container_image != ''
-        shell: bash
-        run: |
-          set -euo pipefail
-          DASHBOARD_URL="${{ steps.db.outputs.url }}"
-          TEST_USER="ci-smoke-${TF_VAR_env}"
-
-          curl -fsS --connect-timeout 5 --max-time 15 "${DASHBOARD_URL}/api/state/catalog" > /tmp/catalog.json
-
-          curl -fsS --connect-timeout 5 --max-time 15 -X PUT "${DASHBOARD_URL}/api/state/selection" \
-            -H "Content-Type: application/json" \
-            -H "X-User-Id: ${TEST_USER}" \
-            -d '{"enabled":true,"selected_model":"'"${TF_VAR_codex_model}"'"}' > /tmp/selection-put.json
-
-          curl -fsS --connect-timeout 5 --max-time 15 "${DASHBOARD_URL}/api/state/selection" \
-            -H "X-User-Id: ${TEST_USER}" > /tmp/selection-get.json
-
-          jq -e '.enabled == true' /tmp/selection-get.json > /dev/null
+    uses: ./.github/workflows/deploy-environment.yaml
+    with:
+      env_name: staging
+      tf_state_key: staging.terraform.tfstate
+      codex_model: gpt-5.3-codex
+      codex_api_version: 2025-04-01-preview
+      terraform_working_directory: infra/env/staging
+      smoke_retry_sleep: "10"
+      smoke_models_wait_sleep: "15"
+      include_aoai_host_check: false
+    secrets:
+      AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
+      AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
+      AZURE_OPENAI_EMBEDDING_ENDPOINT: ${{ secrets.AZURE_OPENAI_EMBEDDING_ENDPOINT }}
+      AZURE_OPENAI_EMBEDDING_API_KEY: ${{ secrets.AZURE_OPENAI_EMBEDDING_API_KEY }}
+      AIGATEWAY_KEY: ${{ secrets.AIGATEWAY_KEY }}
 
   deploy-prod:
     name: Deploy prod
     needs: plan
-    runs-on: ubuntu-latest
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     environment: prod
-    defaults:
-      run:
-        working-directory: infra/env/prod
+    uses: ./.github/workflows/deploy-environment.yaml
+    with:
+      env_name: prod
+      tf_state_key: prod.terraform.tfstate
+      codex_model: gpt-4o
+      codex_api_version: 2025-01-01-preview
+      terraform_working_directory: infra/env/prod
+      smoke_retry_sleep: "15"
+      smoke_models_wait_sleep: "30"
+      include_aoai_host_check: true
+    secrets:
+      AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
+      AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
+      AZURE_OPENAI_EMBEDDING_ENDPOINT: ${{ secrets.AZURE_OPENAI_EMBEDDING_ENDPOINT }}
+      AZURE_OPENAI_EMBEDDING_API_KEY: ${{ secrets.AZURE_OPENAI_EMBEDDING_API_KEY }}
+      AIGATEWAY_KEY: ${{ secrets.AIGATEWAY_KEY }}
 
-    env:
-      TF_VAR_env: "prod"
-      TF_VAR_projname: "aigateway"
-      TF_VAR_location: "southafricanorth"
-      TF_VAR_location_short: "san"
-      TF_VAR_azure_openai_endpoint: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
-      TF_VAR_azure_openai_api_key: ${{ secrets.AZURE_OPENAI_API_KEY }}
-      TF_VAR_azure_openai_embedding_endpoint: ${{ secrets.AZURE_OPENAI_EMBEDDING_ENDPOINT }}
-      TF_VAR_azure_openai_embedding_api_key: ${{ secrets.AZURE_OPENAI_EMBEDDING_API_KEY }}
-      TF_VAR_gateway_key: ${{ secrets.AIGATEWAY_KEY }}
-      TF_VAR_codex_model: "gpt-4o"
-      TF_VAR_codex_api_version: "2025-01-01-preview"
-      TF_VAR_embedding_deployment: "text-embedding-3-large"
-      TF_VAR_embeddings_api_version: "2024-02-01"
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Quickcheck required secrets and config
-        shell: bash
-        run: |
-          set -euo pipefail
-          missing=0
-          required=(
-            AZURE_CLIENT_ID
-            AZURE_TENANT_ID
-            AZURE_SUBSCRIPTION_ID
-            TF_BACKEND_RG
-            TF_BACKEND_SA
-            TF_BACKEND_CONTAINER
-            TF_VAR_azure_openai_endpoint
-            TF_VAR_azure_openai_api_key
-            TF_VAR_gateway_key
-          )
-          for v in "${required[@]}"; do
-            if [ -z "${!v:-}" ]; then
-              echo "::error::Missing required value: ${v}"
-              missing=1
-            else
-              echo "${v}=SET"
-            fi
-          done
-          echo "TF_VAR_env=${TF_VAR_env:-unset}"
-          echo "TF_VAR_embedding_deployment=${TF_VAR_embedding_deployment:-unset}"
-          echo "TF_VAR_codex_model=${TF_VAR_codex_model:-unset}"
-          if [ -n "${TF_VAR_azure_openai_endpoint:-}" ]; then
-            echo "Azure OpenAI endpoint=${TF_VAR_azure_openai_endpoint}"
-            endpoint_host=$(echo "${TF_VAR_azure_openai_endpoint}" | sed -E 's#^https?://([^/]+)/?.*$#\1#')
-            echo "Azure OpenAI endpoint host=${endpoint_host}"
-            if [ -n "${EXPECTED_AOAI_ENDPOINT_HOST:-}" ] && [ "${endpoint_host}" != "${EXPECTED_AOAI_ENDPOINT_HOST}" ]; then
-              echo "::error::Prod AOAI endpoint host mismatch. Expected '${EXPECTED_AOAI_ENDPOINT_HOST}', got '${endpoint_host}'. Check environment secret AZURE_OPENAI_ENDPOINT."
-              missing=1
-            fi
-          fi
-          if [ "${missing}" -ne 0 ]; then
-            exit 1
-          fi
-
-      - name: Azure Login
-        uses: azure/login@v2
-        with:
-          client-id: ${{ env.AZURE_CLIENT_ID }}
-          tenant-id: ${{ env.AZURE_TENANT_ID }}
-          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.14.6
-
-      - name: Terraform Init
-        run: |
-          terraform init \
-            -backend-config="resource_group_name=${TF_BACKEND_RG}" \
-            -backend-config="storage_account_name=${TF_BACKEND_SA}" \
-            -backend-config="container_name=${TF_BACKEND_CONTAINER}" \
-            -backend-config="key=prod.terraform.tfstate"
-
-      - name: Import existing Container App into Terraform state
-        uses: ./.github/actions/import-container-app
-        with:
-          projname: ${{ env.TF_VAR_projname }}
-          env: ${{ env.TF_VAR_env }}
-          location_short: ${{ env.TF_VAR_location_short }}
-          subscription_id: ${{ env.AZURE_SUBSCRIPTION_ID }}
-          terraform_working_directory: infra/env/prod
-
-      - name: Terraform Plan
-        run: |
-          terraform plan -out=tfplan
-
-      - name: Terraform Apply
-        run: |
-          terraform apply -auto-approve tfplan
-
-      - name: Get gateway URL
-        id: gw
-        run: echo "url=$(terraform output -raw gateway_url)" >> $GITHUB_OUTPUT
-
-      - name: Get dashboard URL
-        id: db
-        run: echo "url=$(terraform output -raw dashboard_url 2>/dev/null || true)" >> $GITHUB_OUTPUT
-
-      - name: Runtime diagnostics (Container App config)
-        shell: bash
-        run: |
-          set -euo pipefail
-          RG_NAME="pvc-${TF_VAR_env}-${TF_VAR_projname}-rg-${TF_VAR_location_short}"
-          CA_NAME="pvc-${TF_VAR_env}-${TF_VAR_projname}-ca-${TF_VAR_location_short}"
-          echo "Resource Group: ${RG_NAME}"
-          echo "Container App: ${CA_NAME}"
-          echo "Gateway URL (terraform output): ${{ steps.gw.outputs.url }}"
-          echo "Latest revision:"
-          az containerapp show -g "${RG_NAME}" -n "${CA_NAME}" --query "properties.latestRevisionName" -o tsv
-          echo "Active revisions (name, active, created):"
-          az containerapp revision list -g "${RG_NAME}" -n "${CA_NAME}" --query "[].{name:name,active:properties.active,created:properties.createdTime}" -o table
-          echo "Configured env vars for LiteLLM secret refs:"
-          az containerapp show -g "${RG_NAME}" -n "${CA_NAME}" --query "properties.template.containers[0].env[?name=='LITELLM_AZURE_OPENAI_API_KEY' || name=='LITELLM_GATEWAY_KEY']" -o json
-          echo "Configured secret sources (names + key vault URLs):"
-          az containerapp show -g "${RG_NAME}" -n "${CA_NAME}" --query "properties.configuration.secrets[].{name:name,keyVaultUrl:keyVaultUrl}" -o table
-          echo "LITELLM_CONFIG_CONTENT excerpt (first 2000 chars):"
-          az containerapp show -g "${RG_NAME}" -n "${CA_NAME}" --query "properties.template.containers[0].env[?name=='LITELLM_CONFIG_CONTENT'].value | [0]" -o tsv | head -c 2000 || true
-          echo
-
-      - name: Integration test (Azure OpenAI backend)
-        shell: bash
-        env:
-          AZURE_OPENAI_ENDPOINT: ${{ env.TF_VAR_azure_openai_endpoint }}
-          AZURE_OPENAI_API_KEY: ${{ env.TF_VAR_azure_openai_api_key }}
-          AZURE_OPENAI_EMBEDDING_ENDPOINT: ${{ env.TF_VAR_azure_openai_embedding_endpoint }}
-          AZURE_OPENAI_EMBEDDING_API_KEY: ${{ env.TF_VAR_azure_openai_embedding_api_key }}
-          AZURE_OPENAI_EMBEDDING_DEPLOYMENT: ${{ env.TF_VAR_embedding_deployment }}
-          AZURE_OPENAI_API_VERSION: ${{ env.TF_VAR_embeddings_api_version }}
-          AZURE_OPENAI_CHAT_DEPLOYMENT: "gpt-4.1"
-          AZURE_OPENAI_CHAT_API_VERSION: ${{ env.TF_VAR_codex_api_version }}
-          AZURE_OPENAI_CODEX_MODEL: ${{ env.TF_VAR_codex_model }}
-        working-directory: ${{ github.workspace }}
-        run: python3 scripts/integration_test.py
-
-      - name: Smoke test gateway (embeddings + responses)
-        uses: ./.github/actions/smoke-test-gateway
-        with:
-          gateway_url: ${{ steps.gw.outputs.url }}
-          gateway_key: ${{ secrets.AIGATEWAY_KEY }}
-          embedding_model: ${{ env.TF_VAR_embedding_deployment }}
-          codex_model: ${{ env.TF_VAR_codex_model }}
-          aoai_endpoint: ${{ env.TF_VAR_azure_openai_endpoint }}
-          aoai_api_key: ${{ env.TF_VAR_azure_openai_api_key }}
-          max_attempts: "3"
-          retry_sleep: "15" # prod: longer cold-start; allow more time between retries
-          models_wait_attempts: "3" # prod: wait longer for LiteLLM to register healthy deployments
-          models_wait_sleep: "30"
-
-      - name: Smoke test shared state API (dashboard proxy)
-        if: env.TF_VAR_state_service_container_image != ''
-        shell: bash
-        run: |
-          set -euo pipefail
-          DASHBOARD_URL="${{ steps.db.outputs.url }}"
-          TEST_USER="ci-smoke-${TF_VAR_env}"
-
-          curl -fsS --connect-timeout 5 --max-time 15 "${DASHBOARD_URL}/api/state/catalog" > /tmp/catalog.json
-
-          curl -fsS --connect-timeout 5 --max-time 15 -X PUT "${DASHBOARD_URL}/api/state/selection" \
-            -H "Content-Type: application/json" \
-            -H "X-User-Id: ${TEST_USER}" \
-            -d '{"enabled":true,"selected_model":"'"${TF_VAR_codex_model}"'"}' > /tmp/selection-put.json
-
-          curl -fsS --connect-timeout 5 --max-time 15 "${DASHBOARD_URL}/api/state/selection" \
-            -H "X-User-Id: ${TEST_USER}" > /tmp/selection-get.json
-
-          jq -e '.enabled == true' /tmp/selection-get.json > /dev/null
+  # Legacy inline deployments removed - see deploy-environment.yaml

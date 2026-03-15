@@ -122,7 +122,7 @@ Start with downstream aggregation in pvc-costops-analytics - the cheapest and fa
 
 ### 1. cognitive-mesh (Upstream Caller)
 
-**Required:** Must pass correlation headers when calling gateway. There are two methods:
+**Required:** Pass correlation metadata in request body when calling gateway. There are two methods:
 
 **Method A: Via Request Metadata (Recommended)**
 Pass correlation IDs in the request body `metadata` field:
@@ -216,9 +216,9 @@ _Note: Method B requires additional LiteLLM configuration or middleware._
 
 ## Dependencies
 
-- cognitive-mesh: Must pass correlation metadata to gateway
+- cognitive-mesh: Pass correlation metadata in request body
 - pvc-costops-analytics: Must create KQL queries for new event shape
-- infra: Application Insights being added for trace storage
+- infra: Application Insights resource + APPLICATIONINSIGHTS_CONNECTION_STRING wiring added; trace export requires custom LiteLLM image (with azure-monitor-opentelemetry) or explicit OTEL_EXPORTER_OTLP_ENDPOINT configuration (currently empty by default)
 
 ## Action Items
 
@@ -226,7 +226,7 @@ _Note: Method B requires additional LiteLLM configuration or middleware._
 
 1. ✅ ai-gateway: Add OTEL callback for token telemetry (Phase 1)
 2. ✅ ai-gateway: Document correlation ID requirements (Phase 2)
-3. ✅ ai-gateway: Add Application Insights for trace storage (Phase 1b)
+3. ✅ ai-gateway: Add Application Insights connection string wiring (Phase 1b - trace export requires custom image or OTLP collector)
 
 ### Pending
 
