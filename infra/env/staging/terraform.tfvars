@@ -1,4 +1,4 @@
-env            = "uat"
+env            = "staging"
 projname       = "aigateway"
 location       = "southafricanorth"
 location_short = "san"
@@ -7,7 +7,7 @@ location_short = "san"
 # NOTE: The TF_VAR_azure_openai_endpoint environment variable (set via the
 # GitHub Environment secret AZURE_OPENAI_ENDPOINT) takes precedence over this
 # value during CI/CD runs. For local development, either set that env var or
-# update this file with the correct UAT endpoint.
+# update this file with the correct staging endpoint.
 azure_openai_endpoint = "https://mys-shared-ai-san.cognitiveservices.azure.com"
 
 codex_model       = "gpt-5.3-codex"
@@ -22,7 +22,7 @@ secrets_expiration_date = "2027-03-31T00:00:00Z"
 tags = {
   owner   = "ai-gateway-team"
   project = "aigateway"
-  env     = "uat"
+  env     = "staging"
 }
 
 enable_redis_cache = true
