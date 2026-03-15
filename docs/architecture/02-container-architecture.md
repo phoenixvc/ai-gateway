@@ -57,6 +57,7 @@ flowchart TB
 
     C1 --> G1
     C2 --> G1
+    C3 --> G1
     C4 --> G1
 
     G1 --> G2

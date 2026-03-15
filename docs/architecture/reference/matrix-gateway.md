@@ -41,12 +41,12 @@ flowchart TD
 
 ```json
 {
-  "intent": "code_review",
+  "request_id": "req_abc123",
+  "label": "code_review",
   "complexity": "medium",
   "tool_candidate": true,
-  "recommended_target": "codeflow-engine",
-  "recommended_model_tier": "small",
-  "escalation_required": false,
+  "recommended_tier": "slm",
+  "cacheable": true,
   "confidence": 0.93
 }
 ```
@@ -91,7 +91,7 @@ interface PolicyScreenOutput {
 | Condition                        | Action                 |
 | -------------------------------- | ---------------------- |
 | `policy-screen.allowed == false` | Block or redact        |
-| `confidence < 0.70`              | Escalate to LLM        |
+| `confidence < 0.75`              | Escalate to LLM        |
 | Tool suggested but no mapping    | Send to general LLM    |
 | Tagging fails                    | Mark telemetry partial |
 

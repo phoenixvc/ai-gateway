@@ -40,7 +40,7 @@ Maintain a tiered model portfolio:
 
 Implement cost controls at each layer:
 
-```
+```text
 Cost Control Layers
 ┌─────────────────────────────────────┐
 │ 1. Budget caps per project          │
