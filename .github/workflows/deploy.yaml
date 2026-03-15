@@ -150,7 +150,6 @@ jobs:
     name: Deploy dev
     needs: plan
     if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev'
-    environment: dev
     uses: ./.github/workflows/deploy-environment.yaml
     with:
       env_name: dev
@@ -161,18 +160,30 @@ jobs:
       smoke_retry_sleep: "10"
       smoke_models_wait_sleep: "15"
       include_aoai_host_check: false
+      environment: dev
     secrets:
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      TF_BACKEND_RG: ${{ secrets.TF_BACKEND_RG }}
+      TF_BACKEND_SA: ${{ secrets.TF_BACKEND_SA }}
+      TF_BACKEND_CONTAINER: ${{ secrets.TF_BACKEND_CONTAINER }}
+      EXPECTED_AOAI_ENDPOINT_HOST: ${{ secrets.EXPECTED_AOAI_ENDPOINT_HOST }}
       AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
       AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
       AZURE_OPENAI_EMBEDDING_ENDPOINT: ${{ secrets.AZURE_OPENAI_EMBEDDING_ENDPOINT }}
       AZURE_OPENAI_EMBEDDING_API_KEY: ${{ secrets.AZURE_OPENAI_EMBEDDING_API_KEY }}
       AIGATEWAY_KEY: ${{ secrets.AIGATEWAY_KEY }}
+      STATE_SERVICE_CONTAINER_IMAGE: ${{ vars.STATE_SERVICE_CONTAINER_IMAGE }}
+      STATE_SERVICE_SHARED_TOKEN: ${{ secrets.STATE_SERVICE_SHARED_TOKEN }}
+      STATE_SERVICE_REGISTRY_PASSWORD: ${{ secrets.STATE_SERVICE_REGISTRY_PASSWORD }}
+      DASHBOARD_CONTAINER_IMAGE: ${{ vars.DASHBOARD_CONTAINER_IMAGE }}
+      GRAFANA_URL: ${{ secrets.GRAFANA_URL }}
 
   deploy-staging:
     name: Deploy staging
     needs: plan
     if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'main' && contains(join(github.event.pull_request.labels.*.name, ','), 'run-staging')
-    environment: staging
     uses: ./.github/workflows/deploy-environment.yaml
     with:
       env_name: staging
@@ -183,18 +194,30 @@ jobs:
       smoke_retry_sleep: "10"
       smoke_models_wait_sleep: "15"
       include_aoai_host_check: false
+      environment: staging
     secrets:
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      TF_BACKEND_RG: ${{ secrets.TF_BACKEND_RG }}
+      TF_BACKEND_SA: ${{ secrets.TF_BACKEND_SA }}
+      TF_BACKEND_CONTAINER: ${{ secrets.TF_BACKEND_CONTAINER }}
+      EXPECTED_AOAI_ENDPOINT_HOST: ${{ secrets.EXPECTED_AOAI_ENDPOINT_HOST }}
       AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
       AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
       AZURE_OPENAI_EMBEDDING_ENDPOINT: ${{ secrets.AZURE_OPENAI_EMBEDDING_ENDPOINT }}
       AZURE_OPENAI_EMBEDDING_API_KEY: ${{ secrets.AZURE_OPENAI_EMBEDDING_API_KEY }}
       AIGATEWAY_KEY: ${{ secrets.AIGATEWAY_KEY }}
+      STATE_SERVICE_CONTAINER_IMAGE: ${{ vars.STATE_SERVICE_CONTAINER_IMAGE }}
+      STATE_SERVICE_SHARED_TOKEN: ${{ secrets.STATE_SERVICE_SHARED_TOKEN }}
+      STATE_SERVICE_REGISTRY_PASSWORD: ${{ secrets.STATE_SERVICE_REGISTRY_PASSWORD }}
+      DASHBOARD_CONTAINER_IMAGE: ${{ vars.DASHBOARD_CONTAINER_IMAGE }}
+      GRAFANA_URL: ${{ secrets.GRAFANA_URL }}
 
   deploy-prod:
     name: Deploy prod
     needs: plan
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
-    environment: prod
     uses: ./.github/workflows/deploy-environment.yaml
     with:
       env_name: prod
@@ -205,11 +228,24 @@ jobs:
       smoke_retry_sleep: "15"
       smoke_models_wait_sleep: "30"
       include_aoai_host_check: true
+      environment: prod
     secrets:
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      TF_BACKEND_RG: ${{ secrets.TF_BACKEND_RG }}
+      TF_BACKEND_SA: ${{ secrets.TF_BACKEND_SA }}
+      TF_BACKEND_CONTAINER: ${{ secrets.TF_BACKEND_CONTAINER }}
+      EXPECTED_AOAI_ENDPOINT_HOST: ${{ secrets.EXPECTED_AOAI_ENDPOINT_HOST }}
       AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
       AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
       AZURE_OPENAI_EMBEDDING_ENDPOINT: ${{ secrets.AZURE_OPENAI_EMBEDDING_ENDPOINT }}
       AZURE_OPENAI_EMBEDDING_API_KEY: ${{ secrets.AZURE_OPENAI_EMBEDDING_API_KEY }}
       AIGATEWAY_KEY: ${{ secrets.AIGATEWAY_KEY }}
+      STATE_SERVICE_CONTAINER_IMAGE: ${{ vars.STATE_SERVICE_CONTAINER_IMAGE }}
+      STATE_SERVICE_SHARED_TOKEN: ${{ secrets.STATE_SERVICE_SHARED_TOKEN }}
+      STATE_SERVICE_REGISTRY_PASSWORD: ${{ secrets.STATE_SERVICE_REGISTRY_PASSWORD }}
+      DASHBOARD_CONTAINER_IMAGE: ${{ vars.DASHBOARD_CONTAINER_IMAGE }}
+      GRAFANA_URL: ${{ secrets.GRAFANA_URL }}
 
   # Legacy inline deployments removed - see deploy-environment.yaml

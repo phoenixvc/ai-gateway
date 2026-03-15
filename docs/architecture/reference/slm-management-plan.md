@@ -172,7 +172,7 @@ async def security_pipeline(request: Request) -> SecurityResult:
 
 ### Fallback Hierarchy
 
-```
+```text
 Request
    │
    ▼ Primary SLM
@@ -216,7 +216,7 @@ Request
 
 ### Model Lifecycle
 
-```
+```text
 Discovery → Testing → Staging → Production → Deprecated → Retired
     │           │         │          │            │
     ▼           ▼         ▼          ▼            ▼
@@ -271,4 +271,4 @@ Discovery → Testing → Staging → Production → Deprecated → Retired
 6. [ ] Define fallback hierarchies
 7. [ ] Implement observability stack
 8. [ ] Document model lifecycle process
-9. [ ] **Add explicit safety boundary for PhoenixRooivalk**
+9. [x] Add explicit safety boundary for PhoenixRooivalk

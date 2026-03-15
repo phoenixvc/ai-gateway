@@ -4,7 +4,7 @@ CodeFlow Engine is a DevOps and CI/CD intelligence system. **This is one of the 
 
 ## Architecture
 
-```
+```text
 Git Push / PR Event
       │
       ▼
@@ -96,7 +96,7 @@ async def select_tests(change_type: str, impacted_files: list[str]) -> TestPlan:
 Type: {change_type}
 Files: {', '.join(impacted_files)}
 
-Output: { "run_unit": bool, "run_integration": bool, "run_e2e": bool, "skip_reason": str|null }"""
+Output: {{ "run_unit": bool, "run_integration": bool, "run_e2e": bool, "skip_reason": str|null }}"""
 
     return await slm_completion(prompt)
 ```

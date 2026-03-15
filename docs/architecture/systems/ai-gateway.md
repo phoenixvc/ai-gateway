@@ -4,7 +4,7 @@ AI Gateway sits between applications and multiple AI providers. The SLM acts as 
 
 ## Architecture
 
-```
+```text
 Client Request
       │
       ▼
@@ -144,3 +144,31 @@ Track per routing decision:
 - [ ] Add security prefiltering (injection, PII, secrets)
 - [ ] Set up cost tracking per tier
 - [ ] Configure latency alerts
+
+## v1 API Routing
+
+The gateway routes `/v1/responses` and `/v1/embeddings` requests to Azure OpenAI via LiteLLM provider configuration.
+
+### Routing Rules
+
+| Endpoint         | Provider               | Notes                     |
+| ---------------- | ---------------------- | ------------------------- |
+| `/v1/responses`  | LiteLLM → Azure OpenAI | Standard chat completions |
+| `/v1/embeddings` | LiteLLM → Azure OpenAI | Text embedding generation |
+
+### Example LiteLLM Config
+
+```yaml
+model_list:
+  - model_name: gpt-4.1
+    litellm_params:
+      model: azure/gpt-4.1
+      api_base: https://<resource>.openai.azure.com
+      api_key: os.environ/AZURE_OPENAI_API_KEY
+      api_version: "2025-04-01-preview"
+```
+
+### Response vs Embeddings Handling
+
+- **Responses**: Model selection based on complexity/classification; supports streaming
+- **Embeddings**: Batched processing; fixed deployment mapping

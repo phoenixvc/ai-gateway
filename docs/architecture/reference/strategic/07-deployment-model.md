@@ -26,14 +26,14 @@ flowchart TD
 
 ## Decision Matrix
 
-| System          | Best SLM Jobs              | Less Suitable                  |
-| --------------- | -------------------------- | ------------------------------ |
-| AI Gateway      | routing, screening, cost   | Nuanced synthesis              |
-| Cognitive Mesh  | routing, decomposition     | Final judgment                 |
-| CodeFlow        | PR triage, log analysis    | Root cause across dependencies |
-| AgentKit        | tool selection, extraction | Multi-step planning            |
-| PhoenixRooivalk | summaries, alerts          | Sole threat authority          |
-| Mystira         | safety, continuity         | Rich narrative                 |
+| System          | Best SLM Jobs                                                 | Less Suitable                  |
+| --------------- | ------------------------------------------------------------- | ------------------------------ |
+| AI Gateway      | routing, screening, cost                                      | Nuanced synthesis              |
+| Cognitive Mesh  | routing, decomposition                                        | Final judgment                 |
+| CodeFlow        | PR classification, CI failure triage, release-note extraction | Root cause across dependencies |
+| AgentKit        | tool selection, extraction                                    | Multi-step planning            |
+| PhoenixRooivalk | summaries, alerts                                             | Sole threat authority          |
+| Mystira         | safety, continuity                                            | Rich narrative                 |
 
 ## Practical Gateway Flow
 
