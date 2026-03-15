@@ -29,7 +29,7 @@ Roo/Qoder currently struggles with Azure model/operation mismatches. A gateway n
 ## 3) Environments
 
 - `dev`
-- `uat`
+- `staging`
 - `prod`
 
 Each env is independently deployable.

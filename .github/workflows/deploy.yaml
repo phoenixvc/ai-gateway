@@ -33,23 +33,23 @@ env:
 
 jobs:
   plan:
-    # PR into dev → dev | PR into main + label 'run-uat' → uat | Push to main/workflow_dispatch → prod
+    # PR into dev → dev | PR into main + label 'run-staging' → staging | Push to main/workflow_dispatch → prod
     # Skip plan for PRs from forks (no repo secrets; avoids AADSTS700213)
-    # Runtime UAT toggle: add PR label 'run-uat' to enable UAT on PRs into main.
+    # Runtime UAT toggle: add PR label 'run-staging' to enable UAT on PRs into main.
     if: |
       (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) &&
       (
         (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
         (github.event_name == 'workflow_dispatch') ||
         (github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev') ||
-        (github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'main' && contains(join(github.event.pull_request.labels.*.name, ','), 'run-uat'))
+        (github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'main' && contains(join(github.event.pull_request.labels.*.name, ','), 'run-staging'))
       )
     name: Plan ${{ matrix.environment }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        environment: ${{ (github.event_name == 'workflow_dispatch' && fromJSON('["prod"]')) || (github.event_name == 'push' && github.ref == 'refs/heads/main' && fromJSON('["prod"]')) || (github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev' && fromJSON('["dev"]')) || (github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'main' && contains(join(github.event.pull_request.labels.*.name, ','), 'run-uat') && fromJSON('["uat"]')) || fromJSON('["prod"]') }}
+        environment: ${{ (github.event_name == 'workflow_dispatch' && fromJSON('["prod"]')) || (github.event_name == 'push' && github.ref == 'refs/heads/main' && fromJSON('["prod"]')) || (github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev' && fromJSON('["dev"]')) || (github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'main' && contains(join(github.event.pull_request.labels.*.name, ','), 'run-staging') && fromJSON('["staging"]')) || fromJSON('["prod"]') }}
     environment: ${{ matrix.environment }}
     defaults:
       run:
@@ -324,18 +324,18 @@ jobs:
 
           jq -e '.enabled == true' /tmp/selection-get.json > /dev/null
 
-  deploy-uat:
-    name: Deploy uat
+  deploy-staging:
+    name: Deploy staging
     needs: plan
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'main' && contains(join(github.event.pull_request.labels.*.name, ','), 'run-uat')
-    environment: uat
+    if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'main' && contains(join(github.event.pull_request.labels.*.name, ','), 'run-staging')
+    environment: staging
     defaults:
       run:
-        working-directory: infra/env/uat
+        working-directory: infra/env/staging
 
     env:
-      TF_VAR_env: "uat"
+      TF_VAR_env: "staging"
       TF_VAR_projname: "aigateway"
       TF_VAR_location: "southafricanorth"
       TF_VAR_location_short: "san"
@@ -407,7 +407,7 @@ jobs:
             -backend-config="resource_group_name=${TF_BACKEND_RG}" \
             -backend-config="storage_account_name=${TF_BACKEND_SA}" \
             -backend-config="container_name=${TF_BACKEND_CONTAINER}" \
-            -backend-config="key=uat.terraform.tfstate"
+            -backend-config="key=staging.terraform.tfstate"
 
       - name: Import existing Container App into Terraform state
         uses: ./.github/actions/import-container-app
@@ -416,7 +416,7 @@ jobs:
           env: ${{ env.TF_VAR_env }}
           location_short: ${{ env.TF_VAR_location_short }}
           subscription_id: ${{ env.AZURE_SUBSCRIPTION_ID }}
-          terraform_working_directory: infra/env/uat
+          terraform_working_directory: infra/env/staging
 
       - name: Terraform Plan
         run: |
