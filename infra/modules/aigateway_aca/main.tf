@@ -41,6 +41,7 @@ locals {
   # Features enabled here:
   #   - JSON structured logging → Log Analytics Workspace via Container Apps stdout
   #   - Prometheus /metrics endpoint (built-in, no extra infra)
+  #   - OpenTelemetry tracing for request-to-token attribution
   #   - Langfuse tracing (when both langfuse_public_key and langfuse_secret_key are provided)
   #   - Redis semantic caching (when enable_redis_cache = true)
   #   - Global budget / rate limits (when set above 0)
@@ -73,16 +74,13 @@ locals {
     num_retries: 2
     json_logs: true
     # Prometheus /metrics: token usage, latency and error rate at <gateway>/metrics
+    # OpenTelemetry: structured traces with token telemetry for attribution
     success_callback:
       - prometheus
-  %{if var.langfuse_public_key != "" && var.langfuse_secret_key != ""~}
-      - langfuse
-  %{endif}
+      - otel
     failure_callback:
       - prometheus
-  %{if var.langfuse_public_key != "" && var.langfuse_secret_key != ""~}
-      - langfuse
-  %{endif}
+      - otel
   %{if var.enable_redis_cache~}
     # Redis: deduplicate identical requests to reduce Azure OpenAI token spend
     cache: true
@@ -398,6 +396,35 @@ resource "azurerm_container_app" "ca" {
         for_each = var.langfuse_host != "" ? [var.langfuse_host] : []
         content {
           name  = "LANGFUSE_HOST"
+          value = env.value
+        }
+      }
+
+      # OpenTelemetry configuration for request-to-token attribution
+      # OTEL_EXPORTER_OTLP_ENDPOINT should be set to your OTLP collector URL
+      # e.g., https://your-collector.eastus.azure.com:4318
+      env {
+        name  = "OTEL_SERVICE_NAME"
+        value = "ai-gateway-${var.env}"
+      }
+
+      env {
+        name  = "OTEL_TRACER_NAME"
+        value = "litellm"
+      }
+
+      dynamic "env" {
+        for_each = var.otel_exporter_endpoint != "" ? [var.otel_exporter_endpoint] : []
+        content {
+          name  = "OTEL_EXPORTER_OTLP_ENDPOINT"
+          value = env.value
+        }
+      }
+
+      dynamic "env" {
+        for_each = var.otel_exporter_endpoint != "" ? ["http/json"] : []
+        content {
+          name  = "OTEL_EXPORTER_OTLP_PROTOCOL"
           value = env.value
         }
       }
