@@ -1,36 +1,33 @@
 # AgentKit Forge
 
-AgentKit Forge builds AI agents and orchestration workflows. SLMs help build scalable multi-agent systems.
+AgentKit Forge builds AI agents and orchestration workflows. SLMs help when agents have **many tools** and **large working memory**.
 
 ## Architecture
 
 ```
 Agent Task
-   │
-   ▼
-SLM Tool Selector
-   │
-   ├─ GitHub API
-   ├─ Azure CLI
-   ├─ Terraform
-   └─ Documentation Search
+      │
+      ▼
+┌─────────────────────────────────────┐
+│      SLM Execution Governor          │
+│  (tool selection, memory, budget)   │
+└─────────────────────────────────────┘
+      │
+      ▼
+Tool Selection
+      │
+      ├─→ GitHub API
+      ├─→ Azure CLI
+      ├─→ Terraform
+      ├─→ Documentation Search
+      └─→ LLM Synthesis
 ```
 
-## SLM Use Cases
+## Most Practical SLM Jobs
 
-### 1. Tool Selection
+### 1. Tool Selector
 
-Agent decides which tool to invoke.
-
-**Example tools:**
-
-- GitHub API
-- Azure CLI
-- Terraform
-- Kusto queries
-- File system operations
-
-**SLM output:**
+Map user or system request to the right tool.
 
 ```json
 {
@@ -44,37 +41,41 @@ Agent decides which tool to invoke.
 }
 ```
 
-### 2. Context Compression
+### 2. Relevance Filter
 
-Agents accumulate long conversation histories.
-
-SLM compresses them:
+Only send necessary state to expensive models.
 
 ```json
 {
-  "previous_state_summary": "User requested Azure cost analysis",
-  "relevant_files": ["infra/main.tf", "infra/outputs.tf"],
-  "active_task": "generating cost breakdown"
+  "relevant_context": ["terraform_plan", "error_logs"],
+  "pruned_context": ["old_successful_deploys", "unrelated_metrics"],
+  "estimated_tokens": 3500
 }
 ```
 
-### 3. Token Budget Control
+### 3. Budget Governor
 
-SLM predicts which context segments are needed before invoking a large model.
+Estimate likely token spend and whether tool-first is sufficient.
 
-```python
-# Before calling expensive LLM
-context_plan = await slm_plan_context(
-    task="analyze deployment",
-    available_context=["git_diff", "terraform_plan", "logs", "metrics"]
-)
-
-# Returns:
+```json
 {
-    "required_context": ["terraform_plan"],
-    "optional_context": ["logs"],
-    "estimated_tokens": 8000,
-    "can_fit_in_window": true
+  "estimated_tokens": 8000,
+  "can_fit_in_window": true,
+  "should_use_tool_first": true,
+  "budget_tier": "medium"
+}
+```
+
+### 4. Execution Classifier
+
+Distinguish how to handle the request.
+
+```json
+{
+  "action": "use_tool",
+  "tool_name": "github_api",
+  "escalate_to_llm": false,
+  "reason": "simple data retrieval"
 }
 ```
 
@@ -117,7 +118,26 @@ Output: required_context, optional_context, estimated_tokens"""
     return await slm_completion(prompt)
 ```
 
-### Multi-Step Reasoning
+### Budget Governor
+
+```python
+async def govern_budget(task: str) -> BudgetDecision:
+    prompt = f"""Estimate token budget for this task.
+
+Task: {task}
+
+Consider: context size, expected output, complexity"""
+
+    estimate = await slm_completion(prompt)
+
+    return BudgetDecision(
+        estimated_tokens=estimate.tokens,
+        can_fit=estimate.can_fit,
+        should_escalate=estimate.should_escalate
+    )
+```
+
+### Multi-Step Execution
 
 ```python
 async def execute_agent_task(task: str) -> AgentResult:
@@ -137,6 +157,14 @@ async def execute_agent_task(task: str) -> AgentResult:
     return aggregate_results(plan.steps)
 ```
 
+## Tradeoffs
+
+| Pros                                | Cons                                           |
+| ----------------------------------- | ---------------------------------------------- |
+| Keeps agent execution lean          | Weak tool selection harms trust                |
+| Lowers token burn dramatically      | Compressed memory can omit critical edge cases |
+| Improves tool invocation discipline | Too much reliance can make agents look shallow |
+
 ## Key Concerns
 
 | Concern       | Strategy                               |
@@ -155,10 +183,10 @@ async def execute_agent_task(task: str) -> AgentResult:
 | File ops     | path determination | content generation |
 | Queries      | query construction | result synthesis   |
 
-## Metrics
+## Implementation Checklist
 
-- Tool selection accuracy
-- Context compression ratio
-- LLM call reduction rate
-- Average task latency
-- Cost per agent task
+- [ ] Implement tool selection with confidence scores
+- [ ] Add relevance filtering for context
+- [ ] Implement budget governor with token estimation
+- [ ] Add execution classification (direct/tool/LLM)
+- [ ] Set up fallback to LLM on low confidence

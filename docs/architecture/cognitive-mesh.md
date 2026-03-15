@@ -1,50 +1,54 @@
 # Cognitive Mesh
 
-Cognitive Mesh architectures orchestrate multiple AI agents and tools. The biggest challenge is orchestration intelligence—SLMs are ideal for the coordination layer.
+Cognitive Mesh architectures orchestrate multiple AI agents and tools. The SLM is the **control fabric** that decides which specialist acts, whether decomposition is needed, what context is necessary, and when to escalate.
 
 ## Architecture
 
 ```
 User Query
-    │
-    ▼
-SLM Router
-    │
-    ├─ Code Agent
-    ├─ Infra Agent
-    ├─ Security Agent
-    └─ Research Agent
-          │
-          ▼
-     Specialist Work
-          │
-          ▼
-   LLM (only when required)
+      │
+      ▼
+┌─────────────────────────────────────┐
+│         SLM Control Fabric           │
+│  (routing, decomposition, compression)│
+└─────────────────────────────────────┘
+      │
+      ▼
+Routing Decision
+      │
+      ├─→ Code Agent
+      ├─→ Infra Agent
+      ├─→ Security Agent
+      └─→ Research Agent
+            │
+            ▼
+      Specialist Work
+            │
+            ▼
+      LLM Synthesis (only when needed)
 ```
 
-## SLM Use Cases
+## Strong SLM Roles in Cognitive Mesh
 
-### 1. Agent Router
+### 1. Router
 
-Determine which specialist agent should handle a request.
+Pick which specialist or workflow handles the request.
 
-**Example agents:**
+```json
+{
+  "agent": "code_agent",
+  "confidence": 0.94,
+  "reasoning": "User is asking about refactoring"
+}
+```
 
-- code agent
-- research agent
-- infrastructure agent
-- financial agent
-- security agent
+### 2. Task Decomposer
 
-SLM acts as a deterministic routing layer.
-
-### 2. Task Decomposition
-
-SLM splits requests into tasks:
+Break one request into bounded subtasks.
 
 **Example:**
 
-User request: "Analyze this repo and generate a deployment plan."
+User: "Analyze this repo and generate a deployment plan."
 
 SLM decomposition:
 
@@ -53,17 +57,41 @@ SLM decomposition:
 3. infrastructure detection
 4. deployment strategy generation
 
-Only the final step may require a large model.
+Only the final step requires LLM.
 
-### 3. Agent Health Monitoring
+### 3. Context Compressor
 
-SLMs analyze:
+Reduce token load before LLM synthesis.
 
-- agent logs
-- task failure messages
-- retry signals
+```json
+{
+  "summary": "User wants Azure cost analysis",
+  "relevant_files": ["infra/main.tf", "infra/outputs.tf"],
+  "active_task": "generating cost breakdown",
+  "pruned_messages": 12
+}
+```
 
-They detect issues early without invoking large models.
+### 4. Failure Classifier
+
+Classify failures to determine retry strategy:
+
+```json
+{
+  "failure_type": "tool_error",
+  "retryable": true,
+  "cause": "transient_network",
+  "action": "retry_with_backoff"
+}
+```
+
+## Practical Pattern
+
+A good mesh uses:
+
+1. **SLM first** — routing, decomposition
+2. **Tools/specialists second** — execution
+3. **LLM only for synthesis** — or when ambiguous
 
 ## Implementation
 
@@ -81,7 +109,7 @@ async def select_agent(user_request: str) -> Agent:
         "research": ResearchAgent,
     }
 
-    return agent_map[classification.intent]
+    return agent_map[classification.agent]
 ```
 
 ### Task Decomposition
@@ -98,19 +126,27 @@ async def decompose_task(request: str) -> TaskPlan:
     )
 ```
 
-### Health Check
+### Context Compression
 
 ```python
-async def check_agent_health(agent_logs: list[str]) -> HealthReport:
-    # SLM analyzes logs for issues
-    analysis = await slm_analyze_logs(agent_logs)
+async def compress_context(messages: list[Message]) -> Compressed:
+    summary = await slm_summarize(messages)
 
-    return HealthReport(
-        status=analysis.health_status,
-        issues=analysis.issues,
-        recommendations=analysis.recommendations
+    return Compressed(
+        summary=summary.state,
+        relevant=summary.relevant_messages,
+        token_estimate=summary.tokens
     )
 ```
+
+## Tradeoffs
+
+| Pros                            | Cons                                            |
+| ------------------------------- | ----------------------------------------------- |
+| Very large token savings        | Decomposition quality can bottleneck workflow   |
+| Better determinism              | Brittle routing if taxonomy is poor             |
+| Easier specialist orchestration | Harder debugging if confidence handling is weak |
+| Improved auditability           |                                                 |
 
 ## Key Concerns
 
@@ -130,9 +166,10 @@ async def check_agent_health(agent_logs: list[str]) -> HealthReport:
 | Security | vulnerability scanning         | threat analysis     |
 | Research | information retrieval          | synthesis           |
 
-## Metrics
+## Implementation Checklist
 
-- Routing accuracy by agent type
-- Task decomposition quality (steps correct)
-- Agent utilization ratio
-- LLM escalation rate per agent
+- [ ] Define agent taxonomy with capabilities
+- [ ] Implement SLM router with structured output
+- [ ] Add task decomposition with bounded subtasks
+- [ ] Implement context compression before LLM
+- [ ] Add failure classification for retry logic

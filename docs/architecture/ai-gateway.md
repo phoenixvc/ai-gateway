@@ -1,85 +1,89 @@
 # AI Gateway
 
-AI Gateway sits between applications and multiple AI providers. Its main responsibilities include request routing, guardrails, caching, cost control, model selection, and telemetry tagging.
+AI Gateway sits between applications and multiple AI providers. The SLM acts as the **admission control and routing brain** — the fast, cheap, deterministic control layer before expensive model invocation.
 
 ## Architecture
 
 ```
-Client
-   │
-   ▼
-AI Gateway
-   │
-   ├─ SLM: request classification
-   ├─ SLM: security scan
-   ├─ SLM: cost prediction
-   │
-   ▼
+Client Request
+      │
+      ▼
+┌─────────────────────────────────────┐
+│         SLM Control Layer            │
+│  (intent, complexity, risk, tools)  │
+└─────────────────────────────────────┘
+      │
+      ▼
 Routing Decision
-   ├─ Small model
-   ├─ Tool call
-   └─ Large model escalation
+      │
+      ├─→ Cache (if cacheable)
+      ├─→ Tool call
+      ├─→ SLM response
+      ├─→ Small model
+      └─→ Large model escalation
 ```
 
-## SLM Use Cases
+## SLM as Admission Control
 
-### 1. Request Classification
+The SLM sits **before** expensive model invocation and sometimes **after** provider response for tagging/telemetry normalization.
 
-Determine the intent of a prompt before routing.
+### Best SLM Use Cases
 
-**Example tasks:**
+| Use Case                 | Description                    | Output Schema                      |
+| ------------------------ | ------------------------------ | ---------------------------------- |
+| Intent Classification    | Determine user intent          | `{ "intent": "code_review", ... }` |
+| Complexity Scoring       | Rate request complexity        | `{ "complexity": "medium", ... }`  |
+| Tool Eligibility         | Detect if tool call needed     | `{ "tool_candidate": true, ... }`  |
+| Safety Prefiltering      | Prompt injection, PII, secrets | `{ "risk": "low", ... }`           |
+| Cache Key Enrichment     | Generate cache keys            | `{ "cacheable": false, ... }`      |
+| Telemetry Categorization | Tag for observability          | `{ "category": "analysis", ... }`  |
+| Tenant Policy Gating     | Per-tenant routing rules       | `{ "tier": "premium", ... }`       |
 
-- code generation
-- analysis
-- summarization
-- conversational
-- tool execution
+### Why This Works
 
-**SLM outputs structured routing signals:**
+These tasks are:
+
+- **Short-context** — SLM handles easily
+- **Repetitive** — High cache hit potential
+- **Structured** — Schema-bound outputs
+- **Latency-sensitive** — SLM is fast
+
+### Good SLM Output
 
 ```json
 {
-  "intent": "code_generation",
+  "intent": "code_review",
   "complexity": "medium",
-  "security_risk": "low",
-  "suggested_model": "gpt-large"
+  "tool_candidate": true,
+  "risk": "low",
+  "cacheable": false,
+  "recommended_tier": "large"
 }
 ```
-
-This prevents sending every request to expensive models.
-
-### 2. Prompt Sanitization / Policy Checks
-
-SLM performs quick checks:
-
-- prompt injection
-- policy violations
-- secrets exposure
-- PII detection
-
-This happens before any expensive inference.
-
-### 3. Cost-aware Model Routing
-
-SLM predicts complexity:
-
-- low complexity → small model
-- medium → mid-tier
-- high → large reasoning model
 
 ## Implementation
 
 ### Routing Logic
 
 ```python
-async def route_request(request: str) -> RoutingDecision:
-    # Use SLM for classification
-    classification = await slm_classify(request)
+async def gateway_admission(request: Request) -> AdmissionDecision:
+    # SLM does admission control
+    classification = await slm_classify(request.prompt)
 
-    if classification.confidence > 0.8:
-        return await route_by_intent(classification.intent)
-    else:
-        return await escalate_to_llm(request)
+    # Route based on classification
+    if classification.cacheable:
+        cached = await check_cache(classification.cache_key)
+        if cached:
+            return CachedResponse(cached)
+
+    if classification.tool_candidate:
+        return await route_to_tools(classification)
+
+    if classification.complexity == "low":
+        return await route_to_slm(classification)
+
+    # Escalate to LLM
+    return await route_to_llm(classification)
 ```
 
 ### Policy Check Pipeline
@@ -92,11 +96,20 @@ async def security_scan(prompt: str) -> SecurityResult:
         slm_check_secrets(prompt)
     )
 
-    if any(checks.flagged for checks in checks):
+    if any(check.flagged for check in checks):
         return SecurityResult(blocked=True, reason=checks)
 
     return SecurityResult(allowed=True)
 ```
+
+## Tradeoffs
+
+| Pros                            | Cons                                               |
+| ------------------------------- | -------------------------------------------------- |
+| Major cost reduction            | Misrouting risk if classifier is weak              |
+| Consistent routing              | Small models can under-detect subtle safety issues |
+| Lower p95 latency               | More moving parts in gateway logic                 |
+| Easier telemetry and governance |                                                    |
 
 ## Key Concerns
 
@@ -123,3 +136,11 @@ Track per routing decision:
 - Average latency by route type
 - Escalation rate (SLM → LLM)
 - Cost per 1K requests
+
+## Implementation Checklist
+
+- [ ] Add SLM policy envelope returning intent, complexity, risk, cacheability, tier
+- [ ] Implement cascade pattern for low confidence → LLM
+- [ ] Add security prefiltering (injection, PII, secrets)
+- [ ] Set up cost tracking per tier
+- [ ] Configure latency alerts

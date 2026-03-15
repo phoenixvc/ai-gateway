@@ -1,63 +1,74 @@
 # CodeFlow Engine
 
-CodeFlow Engine is a DevOps and CI/CD intelligence system. SLMs are extremely efficient for many CI tasks.
+CodeFlow Engine is a DevOps and CI/CD intelligence system. **This is one of the most natural SLM fits** — CI/CD emits lots of repetitive semi-structured text where SLMs excel.
 
 ## Architecture
 
 ```
-Git Push
-   │
-   ▼
-CodeFlow Engine
-   │
-   ├─ SLM: commit classification
-   ├─ SLM: risk analysis
-   ├─ SLM: CI log analysis
-   │
-   ▼
-CI/CD Actions
-   ├─ auto approve
-   ├─ run full tests
-   └─ escalate review
+Git Push / PR Event
+      │
+      ▼
+┌─────────────────────────────────────┐
+│         SLM Triage Layer             │
+│  (classification, risk, pipeline)    │
+└─────────────────────────────────────┘
+      │
+      ▼
+CI/CD Decision
+      │
+      ├─→ Auto approve
+      ├─→ Run tests (full/minimal/skip)
+      ├─→ Security review
+      └─→ Escalate to LLM
 ```
 
-## SLM Use Cases
+## Best SLM Use Cases
 
-### 1. Pull Request Classification
+| Use Case                 | Description               | Example Output                                                |
+| ------------------------ | ------------------------- | ------------------------------------------------------------- |
+| PR Classification        | Categorize change type    | `{ "type": "api_contract", "risk": "high" }`                  |
+| Test Selection           | Choose which tests to run | `{ "run_unit": true, "run_integration": false }`              |
+| Blast Radius             | Estimate change impact    | `{ "impacted": ["schemas", "api"], "risk": "medium" }`        |
+| Changelog Category       | Generate release notes    | `{ "category": "feature", "component": "gateway" }`           |
+| Build Log Classification | Diagnose failures         | `{ "failure": "dependency_error", "fix": "npm install" }`     |
+| Flaky Test Grouping      | Identify test patterns    | `{ "flaky_group": "network_timed_out" }`                      |
+| Issue Routing            | Route to component owners | `{ "component": "infrastructure", "owner": "platform-team" }` |
 
-SLM categorizes PRs:
+## Example SLM Outputs
+
+### PR Classification
 
 ```json
 {
-  "type": "documentation",
-  "risk": "low",
-  "tests_required": false,
-  "reviewers_needed": 1
+  "change_type": "api_contract",
+  "risk": "high",
+  "requires_full_ci": true,
+  "security_review": false,
+  "impacted_domains": ["schemas", "api"],
+  "suggested_reviewers": ["platform-team"]
 }
 ```
 
-### 2. Commit Message Analysis
-
-SLM determines:
-
-- semantic change type
-- breaking change risk
-- release notes impact
-
-### 3. CI Failure Diagnosis
-
-SLM reads build logs and classifies failures.
-
-**Example output:**
+### Failure Diagnosis
 
 ```json
 {
-  "failure_type": "dependency_error",
-  "likely_cause": "missing npm package",
-  "suggested_fix": "npm install",
-  "severity": "medium"
+  "failure_type": "dependency_resolution",
+  "retryable": false,
+  "likely_root_cause": "missing package lock update",
+  "suggested_action": "regenerate lock file and rerun"
 }
 ```
+
+## Why This Works
+
+CI/CD emits lots of repetitive semi-structured text:
+
+- Similar commit patterns
+- Recurring error types
+- Predictable change categories
+
+SLMs do very well at pattern recognition on this data.
 
 ## Implementation
 
@@ -67,30 +78,30 @@ SLM reads build logs and classifies failures.
 async def classify_pr(pr_diff: str, pr_description: str) -> PRClassification:
     prompt = f"""Classify this PR:
 
-Diff: {pr_diff[:2000]}
+Diff (first 2000 chars): {pr_diff[:2000]}
 Description: {pr_description}
 
-Output JSON with: type, risk_level, tests_required, reviewers_needed"""
+Output JSON with: type, risk_level, tests_required, reviewers_needed, security_review"""
 
     result = await slm_completion(prompt)
     return PRClassification.parse_json(result)
 ```
 
-### Commit Analysis
+### Test Selection
 
 ```python
-async def analyze_commit(commit: Commit) -> CommitAnalysis:
-    prompt = f"""Analyze this commit:
+async def select_tests(change_type: str, impacted_files: list[str]) -> TestPlan:
+    prompt = f"""Select tests for this change:
 
-Message: {commit.message}
-Files: {commit.changed_files}
+Type: {change_type}
+Files: {', '.join(impacted_files)}
 
-Determine: breaking_change_risk, release_note_needed, impact_area"""
+Output: { "run_unit": bool, "run_integration": bool, "run_e2e": bool, "skip_reason": str|null }"""
 
     return await slm_completion(prompt)
 ```
 
-### CI Log Diagnosis
+### Failure Diagnosis
 
 ```python
 async def diagnose_failure(build_log: str) -> Diagnosis:
@@ -99,22 +110,30 @@ async def diagnose_failure(build_log: str) -> Diagnosis:
 Log (last 5000 chars):
 {build_log[-5000:]}
 
-Output: failure_type, likely_cause, suggested_fix"""
+Output: failure_type, retryable, likely_root_cause, suggested_action"""
 
     return await slm_completion(prompt)
 ```
 
-### Auto-Classification Rules
+### Auto-Rules Mapping
 
 ```python
-# Map SLM output to actions
 CLASSIFICATION_ACTIONS = {
     ("docs", "low"): {"auto_merge": True, "ci_skip": True},
     ("feat", "low"): {"auto_merge": False, "ci_full": True},
     ("fix", "medium"): {"auto_merge": False, "ci_full": True, "security_review": True},
     ("refactor", "low"): {"auto_merge": True, "ci_minimal": True},
+    ("api_contract", "high"): {"auto_merge": False, "ci_full": True, "security_review": True},
 }
 ```
+
+## Tradeoffs
+
+| Pros                                | Cons                                              |
+| ----------------------------------- | ------------------------------------------------- |
+| Cheaper automated repo intelligence | Incorrect risk can under-test changes             |
+| Better developer feedback speed     | Failure summarization may miss subtle root causes |
+| Fewer wasted full-pipeline runs     | Rules should never override hard safety gates     |
 
 ## Key Concerns
 
@@ -127,18 +146,20 @@ CLASSIFICATION_ACTIONS = {
 
 ## Classification Types
 
-| Change Type   | SLM Output   | CI Action        |
-| ------------- | ------------ | ---------------- |
-| documentation | risk: low    | skip tests       |
-| bugfix        | risk: medium | run tests        |
-| refactor      | risk: low    | run tests        |
-| security      | risk: high   | full review      |
-| breaking      | risk: high   | require approval |
+| Change Type   | SLM Output   | CI Action          |
+| ------------- | ------------ | ------------------ |
+| documentation | risk: low    | skip tests         |
+| bugfix        | risk: medium | run tests          |
+| refactor      | risk: low    | run tests          |
+| security      | risk: high   | full review        |
+| breaking      | risk: high   | require approval   |
+| api_contract  | risk: high   | full CI + security |
 
-## Metrics
+## Implementation Checklist
 
-- Classification accuracy
-- Auto-merge success rate
-- Mean time to diagnosis
-- Cost per PR processed
-- False positive rate on security flags
+- [ ] Add PR classification with structured output
+- [ ] Implement test selection hints
+- [ ] Add blast radius estimation
+- [ ] Implement failure diagnosis with suggested actions
+- [ ] Set up changelog category generation
+- [ ] Configure auto-merge rules

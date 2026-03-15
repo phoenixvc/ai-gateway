@@ -4,7 +4,17 @@ Implementation guides for various topics.
 
 ## SLM Implementation
 
-- [README](README.md) - When to use SLMs vs LLMs, implementation patterns
+- [README](README.md) - Practical SLM implementation patterns, when to use SLM vs LLM
+
+## Architecture Reference
+
+See [docs/architecture](../architecture/) for detailed system documentation:
+
+- AI Gateway — SLM as admission control
+- Cognitive Mesh — Agent orchestration
+- PhoenixRooivalk — Edge AI (reports only)
+- CodeFlow Engine — CI/CD intelligence
+- AgentKit Forge — Agent building
 
 ## Coming Soon
 

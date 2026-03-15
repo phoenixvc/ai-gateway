@@ -55,7 +55,7 @@ Cost Control Layers
 └─────────────────────────────────────┘
 ```
 
-### Metrics
+### Targets
 
 | Metric               | Target |
 | -------------------- | ------ |
@@ -90,6 +90,20 @@ Cost Control Layers
 - **Connection pooling** to inference endpoints
 
 ## 4. Edge Deployment (PhoenixRooivalk)
+
+### Critical: SLM is NOT Primary
+
+> **Never use SLM for safety-critical decisions.**
+
+SLM is only for:
+
+- Operator-facing summaries
+- Report generation
+- Post-mission narratives
+
+Core detection uses:
+
+- Rules + signal models + fusion engine
 
 ### Strategy
 
@@ -225,6 +239,7 @@ Discovery → Testing → Staging → Production → Deprecated → Retired
 
 ### PhoenixRooivalk
 
+- **CRITICAL**: SLM NOT for safety decisions
 - Edge hardware diversity
 - Offline reliability
 - Minimal latency
@@ -241,6 +256,11 @@ Discovery → Testing → Staging → Production → Deprecated → Retired
 - Context compression ratio
 - LLM call reduction
 
+## Canonical Principle
+
+> **Use SLMs to decide, filter, classify, compress, and prepare.**
+> **Use LLMs to reason, reconcile, synthesize, and communicate.**
+
 ## Action Items
 
 1. [ ] Establish model registry with tiered selection
@@ -251,3 +271,4 @@ Discovery → Testing → Staging → Production → Deprecated → Retired
 6. [ ] Define fallback hierarchies
 7. [ ] Implement observability stack
 8. [ ] Document model lifecycle process
+9. [ ] **Add explicit safety boundary for PhoenixRooivalk**

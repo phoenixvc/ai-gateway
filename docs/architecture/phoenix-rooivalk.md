@@ -1,10 +1,6 @@
 # PhoenixRooivalk
 
-PhoenixRooivalk is an edge AI counter-UAS (Unmanned Aerial System) system. Key constraints:
-
-- compute must run locally
-- latency must be extremely low
-- connectivity cannot be assumed
+PhoenixRooivalk is an edge AI counter-UAS (Unmanned Aerial System) system. **SLM must NOT be the primary kinetic or safety-critical decision-maker** — it sits in interpretation and operator-support layer only.
 
 ## Architecture
 
@@ -12,53 +8,75 @@ PhoenixRooivalk is an edge AI counter-UAS (Unmanned Aerial System) system. Key c
 Sensors
   │
   ▼
-Telemetry Pipeline
+┌─────────────────────────────────────┐
+│  Rules + Signal Models + Fusion      │
+│   (core detection - NOT SLM)        │
+└─────────────────────────────────────┘
   │
   ▼
-SLM Edge Processor
+Threat Detection
   │
-  ├─ event classification
-  ├─ threat summarization
-  └─ anomaly detection
+  ▼
+┌─────────────────────────────────────┐
+│      SLM Interpretation Layer        │
+│  (summaries, reports, narratives)    │
+└─────────────────────────────────────┘
   │
   ▼
 Operator Console
 ```
 
-## SLM Use Cases
+## Critical Principle
 
-### 1. Telemetry Interpretation
+> Use **rules + signal models + fusion engine** for core detection.
+> Use **SLM only** for human-readable interpretation and workflow assistance.
 
-Drones produce large telemetry streams:
+**Never use SLM for:**
 
-- radar
-- RF signatures
-- flight patterns
-- behavior anomalies
+- Primary safety-critical actuation
+- Final kinetic authorization
+- Real-time hard control loops
+- Deterministic low-level signal classification (use classical/ML models)
 
-SLM interprets events:
+## Good SLM Use Cases
+
+| Use Case               | Description                 | Output                                   |
+| ---------------------- | --------------------------- | ---------------------------------------- |
+| Alert Summaries        | Format alerts for operators | "Drone approaching from NW at 35m"       |
+| Event Clustering       | Group similar events        | `{ "cluster": "loitering", "count": 3 }` |
+| Post-Mission Narrative | Generate mission reports    | Full structured report                   |
+| SOP Lookup             | Suggest procedures          | `{ "sop": "perimeter breach" }`          |
+| Incident Drafting      | Draft incident reports      | Human-readable report                    |
+| Telemetry Translation  | Convert raw to text         | "RF signature consistent with..."        |
+
+## Example SLM Outputs
+
+### Alert Summary
 
 ```json
 {
-  "pattern": "loitering",
+  "summary": "Drone detected approaching perimeter at 35m altitude",
   "classification": "suspicious",
-  "confidence": 0.74
+  "confidence": 0.74,
+  "relevant_sensors": ["radar", "rf"],
+  "operator_action": "monitor"
 }
 ```
 
-### 2. Threat Report Summarization
+### Post-Mission Narrative
 
-Edge device converts raw telemetry into operator reports.
+```
+Mission Summary:
+- Duration: 45 minutes
+- Events detected: 3
+- Threats: 1 (non-critical)
+- Actions taken: Monitor mode
 
-**Example:**
-
-Raw data → SLM summary:
-
-> Drone detected approaching perimeter at 35m altitude, RF signature consistent with consumer quadcopter.
-
-### 3. Mission Log Structuring
-
-SLM converts unstructured logs into structured intelligence records.
+Key Event:
+14:32 - Drone detected approaching perimeter from NW
+Classification: Consumer quadcopter (RF signature match)
+Resolution: Left area at 14:38
+```
 
 ## Implementation
 
@@ -70,48 +88,65 @@ class EdgeProcessor:
         self.slm = load_local_slm()  # Gemma or Phi-3
 
     async def process_telemetry(self, raw_stream: bytes) -> ProcessedEvent:
-        # Parse telemetry
-        telemetry = self.parse(raw_stream)
+        # Core detection is NOT SLM - rules + signal models
+        detection = self.fusion_engine.process(raw_stream)
 
-        # SLM classification
-        classification = await self.slm.classify(telemetry)
-
-        # Generate summary if threat detected
-        if classification.threat_level > THRESHOLD:
-            summary = await self.slm.summarize(telemetry)
+        if detection.threat_level > THRESHOLD:
+            # SLM only for human interpretation
+            summary = await self.slm.summarize(detection)
 
         return ProcessedEvent(
-            classification=classification,
-            summary=summary,
+            detection=detection,
+            summary=summary,  # SLM output
             timestamp=datetime.utcnow()
         )
 ```
 
-### Local Inference
+### Alert Formatting
 
 ```python
-# Run on edge device (Jetson Nano / edge GPU)
-async def run_local_inference(telemetry_data):
-    # No cloud call - all local
-    model = SLMModel("phi-3-mini-4k")
+async def format_alert(detection: Detection) -> OperatorAlert:
+    prompt = f"""Format this detection for operator:
 
-    result = await model.run(
-        input=telemetry_data,
-        device="cuda",  # or "cpu" for minimal hardware
-        batch_size=1
-    )
+Radar: {detection.radar_summary}
+RF: {detection.rf_signature}
+Flight: {detection.flight_pattern}
 
-    return result
+Output: summary, classification, recommended_action"""
+
+    return await slm_completion(prompt)
 ```
+
+### Report Generation
+
+```python
+async def generate_mission_report(events: list[Event]) -> MissionReport:
+    prompt = f"""Generate post-mission report:
+
+Events: {format_events(events)}
+Duration: {mission.duration}
+
+Output: structured report with key findings"""
+
+    return await slm_completion(prompt)
+```
+
+## Tradeoffs
+
+| Pros                          | Cons                                                         |
+| ----------------------------- | ------------------------------------------------------------ |
+| Better operator comprehension | Hallucinated interpretations dangerous if presented as facts |
+| Faster report generation      | Must clearly separate inferred from sensor facts             |
+| Reduced cognitive load        | Offline edge deployment constraints                          |
 
 ## Key Concerns
 
-| Concern              | Strategy                                      |
-| -------------------- | --------------------------------------------- |
-| Hardware constraints | Optimize SLM for edge (quantization, pruning) |
-| Latency              | Must process in <100ms                        |
-| Reliability          | Offline-first; queue for later sync           |
-| Security             | No external connectivity required             |
+| Concern                   | Strategy                                     |
+| ------------------------- | -------------------------------------------- |
+| Safety-critical decisions | Never use SLM for actuation                  |
+| Hallucination             | Clearly label SLM output as "interpretation" |
+| Edge constraints          | Optimize SLM for edge (quantization)         |
+| Offline operation         | Full local inference capability              |
 
 ## Hardware Options
 
@@ -135,10 +170,11 @@ model = quantize(
 )
 ```
 
-## Metrics
+## Implementation Checklist
 
-- Processing latency (target: <50ms p99)
-- Classification accuracy vs cloud baseline
-- Offline operation time
-- Memory footprint
-- Threat detection rate
+- [ ] Separate SLM from core detection pipeline
+- [ ] Implement alert summarization for operators
+- [ ] Add post-mission narrative generation
+- [ ] Clearly label SLM output vs sensor facts
+- [ ] Optimize for edge deployment
+- [ ] Test offline operation
