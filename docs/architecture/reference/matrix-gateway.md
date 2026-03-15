@@ -51,6 +51,16 @@ flowchart TD
 }
 ```
 
+> **Migration Note (v1.0.0)**: The response contract has been updated. Legacy field names `intent`, `recommended_target`, `recommended_model_tier`, and `escalation_required` are deprecated. Update clients to use the new fields:
+>
+> - `intent` → `label`
+> - `recommended_target` → removed (use `recommended_tier` for routing)
+> - `recommended_model_tier` → `recommended_tier`
+> - `escalation_required` → derive from `confidence < 0.75` threshold
+> - `cacheable` is a new field (previously not returned)
+>
+> **Deprecation window**: Legacy fields will be removed in v1.2.0. Clients should update by then. For backwards compatibility, implement fallback logic checking both old and new field names.
+
 ## Contract Shapes
 
 ```typescript

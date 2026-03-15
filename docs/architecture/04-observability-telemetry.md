@@ -76,7 +76,7 @@ flowchart TB
 
 ### Telemetry Sinks
 
-LiteLLM enables Prometheus metrics via `success_callback` and `failure_callback` containing "prometheus". The Prometheus exporter exposes a `/metrics` endpoint that scrapes application metrics. See `infra/modules/aigateway_aca/main.tf:95-113` for the container configuration.
+LiteLLM enables Prometheus metrics via `success_callback` and `failure_callback` containing "prometheus". The Prometheus exporter exposes a `/metrics` endpoint which is scraped by Prometheus for application metrics collection. See `infra/modules/aigateway_aca/main.tf:95-113` for the container configuration.
 
 The primary telemetry sinks are:
 

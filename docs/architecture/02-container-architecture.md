@@ -27,6 +27,7 @@ flowchart TB
         G4[Budget Router]
         G5[Semantic Cache]
         G6[Escalation Judge]
+        W[Webhook Auth]
     end
 
     subgraph Mesh
@@ -57,7 +58,8 @@ flowchart TB
 
     C1 --> G1
     C2 --> G1
-    C3 --> G1
+    C3 --> W
+    W --> G1
     C4 --> G1
 
     G1 --> G2

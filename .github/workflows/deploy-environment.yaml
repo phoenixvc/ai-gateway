@@ -28,6 +28,11 @@ on:
         type: string
         default: "10"
         description: Retry sleep for smoke tests
+      smoke_models_wait_sleep:
+        required: false
+        type: string
+        default: "15"
+        description: Sleep seconds between model availability checks
       smoke_models_wait_attempts:
         required: false
         type: string
