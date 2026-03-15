@@ -30,8 +30,7 @@ output "container_app_environment_id" {
   value       = azurerm_container_app_environment.cae.id
 }
 
-output "application_insights_connection_string" {
-  value       = azurerm_application_insights.ai.connection_string
-  description = "Application Insights connection string for OTEL export."
-  sensitive   = true
+output "application_insights_name" {
+  description = "Application Insights resource name. Retrieve connection string from Key Vault secret 'appinsights-connection-string'."
+  value       = azurerm_application_insights.ai.name
 }
