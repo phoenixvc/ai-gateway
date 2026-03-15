@@ -1,152 +1,39 @@
-# Small Language Models (SLM)
+# Architecture
 
-A Small Language Model (SLM) is a language model with significantly fewer parameters and lower computational requirements than large models such as GPT-class systems. While definitions vary, SLMs typically fall into the tens of millions to a few billion parameters, compared with tens or hundreds of billions in large models.
+This directory contains system architecture documentation for the AI Gateway and related systems.
 
-## Examples
+## Overview
 
-- Phi-2
-- Phi-3
-- Llama 3 8B
-- Gemma
-- Mistral 7B
+The architecture follows a layered approach combining:
 
-Although some of these approach the boundary between "small" and "medium," they are still commonly used where full-scale LLM infrastructure is impractical.
+- **SLMs (Small Language Models)** for cost-effective routing, classification, and tool selection
+- **LLMs** for complex reasoning and final synthesis
 
-## Core Characteristics
+## Documentation
 
-| Property          | Small Language Model           | Large Language Model |
-| ----------------- | ------------------------------ | -------------------- |
-| Parameter count   | ~10M–10B                       | 50B–1T+              |
-| Hardware          | CPU / small GPU / edge devices | multi-GPU clusters   |
-| Latency           | low                            | moderate/high        |
-| Memory footprint  | small                          | large                |
-| Cost per request  | low                            | higher               |
-| Reasoning ability | limited                        | stronger             |
+### Core Concepts
 
-## Architectural Patterns
+- [README](README.md) - SLM fundamentals, characteristics, patterns
+- [cross-system.md](cross-system.md) - How all systems integrate
 
-### 1. Cascade Architecture
+### Project-Specific
 
-```
-SLM
- ↓ confidence high
-Return result
+- [ai-gateway.md](ai-gateway.md) - AI Gateway architecture
+- [cognitive-mesh.md](cognitive-mesh.md) - Agent orchestration
+- [phoenix-rooivalk.md](phoenix-rooivalk.md) - Edge AI system
+- [codeflow-engine.md](codeflow-engine.md) - CI/CD intelligence
+- [agentkit-forge.md](agentkit-forge.md) - Agent building framework
 
-SLM
- ↓ confidence low
-LLM escalation
-```
+### Planning
 
-This is widely used in AI cost optimization pipelines.
+- [slm-management-plan.md](slm-management-plan.md) - Cross-project SLM management
 
-### 2. Router + Specialists
+## Quick Reference
 
-```
-Router (SLM)
-  ├─ Code model
-  ├─ Security model
-  ├─ Cost analysis model
-  └─ General LLM fallback
-```
-
-SLMs act as intent classifiers.
-
-### 3. Local-First AI
-
-```
-Device
- ├─ SLM
- ├─ embeddings
- └─ local vector store
-```
-
-Cloud models are only used when needed.
-
-## Typical Modern AI Stack
-
-```
-                User Request
-                     │
-                Router (SLM)
-          ┌──────────┼──────────┐
-          │          │          │
-     Tool call    Specialist    LLM
-      (cheap)       (SLM)     (expensive)
-```
-
-This hybrid architecture is becoming the dominant design pattern in AI systems.
-
-## Advantages
-
-### 1. Cost Efficiency
-
-A typical cost comparison:
-
-| Model type | Approx cost               |
-| ---------- | ------------------------- |
-| SLM        | ~1–5% of large model cost |
-| LLM        | baseline                  |
-
-For large pipelines this difference becomes dominant.
-
-### 2. Low Latency
-
-SLMs can respond in 10–100 ms, especially when running locally.
-
-### 3. Deployability
-
-They can run on:
-
-- CPUs
-- edge GPUs
-- phones
-- embedded boards
-
-### 4. Privacy and Data Control
-
-Data never leaves the environment. Important for:
-
-- healthcare
-- finance
-- internal enterprise tooling
-
-## Limitations
-
-### 1. Reduced Reasoning Ability
-
-SLMs struggle with:
-
-- multi-step reasoning
-- long planning chains
-- abstract reasoning
-- ambiguous tasks
-
-### 2. Smaller Context Windows
-
-Often limited to 4k–32k tokens, though some newer ones extend further.
-
-### 3. Knowledge Coverage
-
-Because they are smaller:
-
-- less general knowledge
-- more hallucination risk without grounding
-
-### 4. Prompt Sensitivity
-
-They require:
-
-- cleaner prompts
-- tighter task definitions
-- structured inputs
-
-## Practical Tradeoff Summary
-
-| Factor          | Prefer SLM | Prefer LLM |
-| --------------- | ---------- | ---------- |
-| cost            | ✓          |            |
-| latency         | ✓          |            |
-| edge deployment | ✓          |            |
-| reasoning       |            | ✓          |
-| creativity      |            | ✓          |
-| complex tasks   |            | ✓          |
+| System          | SLM Role                            | Key Document        |
+| --------------- | ----------------------------------- | ------------------- |
+| AI Gateway      | routing, policy checks              | ai-gateway.md       |
+| Cognitive Mesh  | agent routing, task decomposition   | cognitive-mesh.md   |
+| PhoenixRooivalk | edge telemetry analysis             | phoenix-rooivalk.md |
+| CodeFlow Engine | CI intelligence, log analysis       | codeflow-engine.md  |
+| AgentKit Forge  | tool selection, context compression | agentkit-forge.md   |
